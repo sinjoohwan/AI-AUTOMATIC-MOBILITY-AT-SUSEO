@@ -1,68 +1,196 @@
-export const BOUNDS = { minX: -11.4, maxX: 11.4, minZ: -6.7, maxZ: 6.7 };
-export const FLOOR_ORDER = ['1F', 'B1', 'B2'];
+export const BOUNDS = { minX: -14.0, maxX: 15.0, minZ: -9.4, maxZ: 8.4 };
+export const FLOOR_BOUNDS = {
+  '1F': BOUNDS,
+  B1: { minX: -11.8, maxX: 14.0, minZ: -9.9, maxZ: 5.6 },
+};
+export const FLOOR_ORDER = ['1F', 'B1'];
+const drivingRules = { deck: true, replan: true, rescue: true, keep: true };
+export function setDrivingRule(id, enabled) {
+  if (Object.prototype.hasOwnProperty.call(drivingRules, id)) drivingRules[id] = Boolean(enabled);
+}
 const MAP_CLEARANCE = 0.18;
 
+export function boundsFor(floor = '1F') {
+  return FLOOR_BOUNDS[floor] || BOUNDS;
+}
+
 export const nodes = [
-  { id: 'gate', label: '개찰구', x: -8, z: 0, floor: '1F', radius: 0.72 },
-  { id: 'hall', label: '맞이방', x: -3, z: 0, floor: '1F', radius: 0.8 },
-  { id: 'info', label: '안내센터', x: -0.4, z: -1.7, floor: '1F', radius: 0.7 },
-  { id: 'lift', label: '엘리베이터', x: 3, z: -3, floor: '1F', radius: 0.9 },
-  { id: 'platform', label: '승강장 연결통로', x: 7, z: 0, floor: '1F', radius: 0.8 },
-  { id: 'charge', label: '충전존', x: -6, z: 4, floor: '1F', radius: 0.78 },
-  { id: 'kiosk', label: '호출 키오스크', x: 2.55, z: 4.3, floor: '1F', radius: 0.72 },
-  { id: 'exit', label: '출구', x: 9.9, z: 3.4, floor: '1F', radius: 0.72 },
-  { id: 'stairs', label: '계단·에스컬레이터', x: 4, z: 2, floor: '1F', forbidden: true },
-  { id: 'b1_lift', label: 'B1 엘리베이터', x: 3, z: -3, floor: 'B1', radius: 0.9 },
-  { id: 'b1_concourse', label: 'B1 중앙홀', x: 3, z: 4.2, floor: 'B1', radius: 0.8 },
-  { id: 'b1_platform_west', label: '1번 승강장', x: -8, z: -1, floor: 'B1', radius: 0.8 },
-  { id: 'b1_platform_east', label: '2번 승강장', x: 8, z: -1, floor: 'B1', radius: 0.8 },
-  { id: 'b2_lift', label: 'B2 엘리베이터', x: 3, z: -3, floor: 'B2', radius: 0.9 },
-  { id: 'b2_concourse', label: 'B2 대합실', x: -7, z: 1, floor: 'B2', radius: 0.9 },
-  { id: 'b2_platform', label: 'B2 승강장', x: 7.5, z: -1.7, floor: 'B2', radius: 0.9 },
+  { id: 'hall', label: '대합실', x: -4.0, z: -2.6, floor: '1F', radius: 0.75 },
+  { id: 'ev1', label: 'EV1', x: -7.4, z: 3.3, floor: '1F', radius: 0.62 },
+  { id: 'lift_12', label: '1·2번 엘리베이터', x: 6.0, z: -6.4, floor: '1F', radius: 0.66 },
+  { id: 'lift_34', label: '3·4번 엘리베이터', x: 6.0, z: -1.0, floor: '1F', radius: 0.66 },
+  { id: 'lift_56', label: '5·6번 엘리베이터', x: 6.0, z: 4.0, floor: '1F', radius: 0.66 },
+  { id: 'taxi', label: '택시 타는곳', x: 12.35, z: 1.05, floor: '1F', radius: 0.62 },
+  { id: 'info', label: '안내창구', x: -3.2, z: -3.8, floor: '1F', radius: 0.62, service: true },
+  { id: 'ground_exit', label: '지상층', x: -9.65, z: 1.9, floor: '1F', radius: 0.6, service: true },
+  { id: 'subway', label: '지하철 타는곳', x: -12.4, z: 3.25, floor: '1F', radius: 0.62 },
+  { id: 'charge', label: '충전 부스', x: -7.45, z: -3.3, floor: '1F', radius: 0.7 },
+  { id: 'b1_lift_12', label: '1·2번 엘리베이터', x: 10.5, z: -6.4, floor: 'B1', radius: 0.66, service: true },
+  { id: 'b1_lift_34', label: '3·4번 엘리베이터', x: 10.5, z: -1.0, floor: 'B1', radius: 0.66, service: true },
+  { id: 'b1_lift_56', label: '5·6번 엘리베이터', x: 10.5, z: 4.0, floor: 'B1', radius: 0.66, service: true },
+  { id: 'b2_info', label: '안내창구', x: -7.85, z: -3.8, floor: 'B1', radius: 0.66 },
+  { id: 'b2_subway', label: '지하철 타는곳', x: -8.9, z: 3.55, floor: 'B1', radius: 0.62 },
+  { id: 'p1a', label: '1A 승강장', x: 1.2, z: -7.45, floor: 'B1', radius: 0.55 },
+  { id: 'p1b', label: '1B 승강장', x: 4.6, z: -7.45, floor: 'B1', radius: 0.55 },
+  { id: 'p1c', label: '1C 승강장', x: 8.0, z: -7.45, floor: 'B1', radius: 0.55 },
+  { id: 'p2a', label: '2A 승강장', x: 2.9, z: -5.95, floor: 'B1', radius: 0.55 },
+  { id: 'p2b', label: '2B 승강장', x: 6.3, z: -5.95, floor: 'B1', radius: 0.55 },
+  { id: 'p2c', label: '2C 승강장', x: 9.0, z: -5.95, floor: 'B1', radius: 0.55 },
+  { id: 'p3a', label: '3A 승강장', x: 1.2, z: -2.7, floor: 'B1', radius: 0.55 },
+  { id: 'p3b', label: '3B 승강장', x: 4.6, z: -2.7, floor: 'B1', radius: 0.55 },
+  { id: 'p3c', label: '3C 승강장', x: 8.0, z: -2.7, floor: 'B1', radius: 0.55 },
+  { id: 'p4a', label: '4A 승강장', x: 2.9, z: -0.55, floor: 'B1', radius: 0.55 },
+  { id: 'p4b', label: '4B 승강장', x: 6.3, z: -0.55, floor: 'B1', radius: 0.55 },
+  { id: 'p4c', label: '4C 승강장', x: 9.0, z: -0.55, floor: 'B1', radius: 0.55 },
+  { id: 'p5a', label: '5A 승강장', x: 1.2, z: 2.5, floor: 'B1', radius: 0.55 },
+  { id: 'p5b', label: '5B 승강장', x: 4.6, z: 2.5, floor: 'B1', radius: 0.55 },
+  { id: 'p5c', label: '5C 승강장', x: 8.0, z: 2.5, floor: 'B1', radius: 0.55 },
+  { id: 'p6a', label: '6A 승강장', x: 2.9, z: 4.15, floor: 'B1', radius: 0.55 },
+  { id: 'p6b', label: '6B 승강장', x: 6.3, z: 4.15, floor: 'B1', radius: 0.55 },
+  { id: 'p6c', label: '6C 승강장', x: 9.0, z: 4.15, floor: 'B1', radius: 0.55 },
 ];
 
 const links = {
-  gate: ['hall'],
-  hall: ['gate', 'info', 'charge', 'kiosk'],
-  info: ['hall', 'lift'],
-  lift: ['info', 'platform', 'b1_lift'],
-  platform: ['lift', 'exit'],
-  charge: ['hall'],
-  kiosk: ['hall', 'exit'],
-  exit: ['platform', 'kiosk'],
-  stairs: ['kiosk', 'lift', 'exit'],
-  b1_lift: ['lift', 'b1_concourse', 'b2_lift'],
-  b1_concourse: ['b1_lift', 'b1_platform_west', 'b1_platform_east'],
-  b1_platform_west: ['b1_concourse'],
-  b1_platform_east: ['b1_concourse'],
-  b2_lift: ['b1_lift', 'b2_concourse', 'b2_platform'],
-  b2_concourse: ['b2_lift', 'b2_platform'],
-  b2_platform: ['b2_lift', 'b2_concourse'],
+  hall: ['info', 'ground_exit', 'ev1', 'subway', 'lift_12', 'lift_34', 'lift_56', 'taxi', 'charge'],
+  info: ['hall', 'lift_12'],
+  ground_exit: ['hall', 'ev1', 'subway'],
+  ev1: ['hall', 'ground_exit', 'subway'],
+  subway: ['hall', 'ev1', 'ground_exit'],
+  lift_12: ['hall', 'info', 'lift_34', 'b1_lift_12'],
+  lift_34: ['hall', 'lift_12', 'lift_56', 'taxi', 'b1_lift_34'],
+  lift_56: ['hall', 'lift_34', 'taxi', 'b1_lift_56'],
+  taxi: ['hall', 'lift_34', 'lift_56'],
+  charge: ['hall', 'ev1', 'lift_56'],
+  b1_lift_12: ['lift_12', 'p1a', 'p1c', 'p2c'],
+  b1_lift_34: ['lift_34', 'p3a', 'p3c', 'p4c'],
+  b1_lift_56: ['lift_56', 'p5a', 'p5c', 'p6c'],
+  b2_info: ['b2_subway', 'p1a', 'p2a'],
+  b2_subway: ['b2_info', 'p6a'],
+  p1a: ['b2_info', 'p1b', 'p2a', 'b1_lift_12'],
+  p1b: ['p1a', 'p1c', 'p2b'],
+  p1c: ['p1b', 'p2c', 'b1_lift_12'],
+  p2a: ['b2_info', 'p2b', 'p1a'],
+  p2b: ['p2a', 'p2c', 'p1b'],
+  p2c: ['p2b', 'p1c', 'b1_lift_12'],
+  p3a: ['b1_lift_34', 'p3b', 'p4a'],
+  p3b: ['p3a', 'p3c', 'p4b'],
+  p3c: ['p3b', 'p4c', 'b1_lift_34'],
+  p4a: ['p3a', 'p4b'],
+  p4b: ['p4a', 'p4c', 'p3b'],
+  p4c: ['p4b', 'p3c', 'b1_lift_34'],
+  p5a: ['b1_lift_56', 'p5b', 'p6a'],
+  p5b: ['p5a', 'p5c', 'p6b'],
+  p5c: ['p5b', 'p6c', 'b1_lift_56'],
+  p6a: ['b2_subway', 'p6b', 'p5a'],
+  p6b: ['p6a', 'p6c', 'p5b'],
+  p6c: ['p6b', 'p5c', 'b1_lift_56'],
 };
 
-export const stationAreas = [
-  { id: '1f-concourse', floor: '1F', x: 0, z: 0, w: 19, d: 10.5, label: '중앙 대합실', kind: 'concourse', color: '#18364a' },
-  { id: '1f-entrance', floor: '1F', x: -8.4, z: 0, w: 3.2, d: 4.2, label: '개찰구', kind: 'service', color: '#25465b' },
-  { id: 'b1-concourse', floor: 'B1', x: 0, z: 4.25, w: 19, d: 3.4, label: 'B1 중앙홀 · 환승 통로', kind: 'concourse', color: '#1b3d4c' },
-  { id: 'b1-platform-west', floor: 'B1', x: -8, z: -1, w: 2.5, d: 7.4, label: '1번 승강장', kind: 'platform', color: '#24465a' },
-  { id: 'b1-platform-east', floor: 'B1', x: 8, z: -1, w: 2.5, d: 7.4, label: '2번 승강장', kind: 'platform', color: '#24465a' },
-  { id: 'b1-track-west', floor: 'B1', x: -6, z: -1, w: 1.4, d: 6.4, label: '선로 · 통행 금지', kind: 'track', axis: 'z', color: '#101a25' },
-  { id: 'b1-track-east', floor: 'B1', x: 6, z: -1, w: 1.4, d: 6.4, label: '선로 · 통행 금지', kind: 'track', axis: 'z', color: '#101a25' },
-  { id: 'b2-concourse', floor: 'B2', x: -6.7, z: 0.8, w: 9, d: 8.2, label: 'B2 대합실', kind: 'concourse', color: '#302c4b' },
-  { id: 'b2-platform', floor: 'B2', x: 1.8, z: -1.7, w: 18, d: 2.8, label: 'B2 승강장', kind: 'platform', color: '#2b3850' },
-  { id: 'b2-track', floor: 'B2', x: 1.8, z: -4.6, w: 18, d: 1.2, label: '선로 · 통행 금지', kind: 'track', axis: 'x', color: '#101a25' },
+const SHAFTS = [
+  { id: '12', gates: ['p1a', 'p1b', 'p1c', 'p2a', 'p2b', 'p2c', 'b2_info', 'b2_subway'], floors: { '1F': 'lift_12', B1: 'b1_lift_12' } },
+  { id: '34', gates: ['p3a', 'p3b', 'p3c', 'p4a', 'p4b', 'p4c'], floors: { '1F': 'lift_34', B1: 'b1_lift_34' } },
+  { id: '56', gates: ['p5a', 'p5b', 'p5c', 'p6a', 'p6b', 'p6c'], floors: { '1F': 'lift_56', B1: 'b1_lift_56' } },
+];
+const ELEVATOR_NODE_IDS = new Set(SHAFTS.flatMap((shaft) => Object.values(shaft.floors)));
+
+export const floorFootprints = {
+  '1F': [
+    [-11.1, -6.25], [-1.6, -6.25],
+    [-1.6, -8.0], [1.0, -8.0], [1.0, -6.25], [3.6, -6.25],
+    [3.6, -8.7], [10.6, -8.7], [10.6, -4.2], [14.3, -4.2],
+    [14.3, 2.2], [9.2, 2.2], [9.2, 2.8], [11.2, 2.8],
+    [11.2, 6.2], [7.4, 6.2], [7.4, 7.7], [-3.4, 7.7],
+    [-3.4, 5.4], [-8.5, 5.4], [-11.1, 5.4],
+    [-11.1, 4.55], [-13.4, 4.55], [-13.4, 1.7], [-11.1, 1.7],
+  ],
+  B1: [
+    [
+      [-11.2, -8.15], [13.2, -8.15], [13.2, -5.35], [-2.15, -5.35],
+      [-2.15, -3.55], [13.2, -3.55], [13.2, 0.15], [-2.15, 0.15],
+      [-2.15, 1.7], [13.2, 1.7], [13.2, 5.05], [-11.2, 5.05],
+    ],
+  ],
+};
+
+export function footprintRings(floor) {
+  const value = floorFootprints[floor] || [];
+  if (!value.length || typeof value[0][0] === 'number') return value.length ? [value] : [];
+  return value;
+}
+
+export const trackBeds = {
+  B1: [
+    [[-1.9, -9.35], [13.2, -9.35], [13.2, -8.2], [-1.9, -8.2]],
+    [[-1.9, -5.35], [13.2, -5.35], [13.2, -3.55], [-1.9, -3.55]],
+    [[-1.9, 0.15], [13.2, 0.15], [13.2, 1.7], [-1.9, 1.7]],
+  ],
+};
+
+export const floorDetails = {};
+
+export const elevatorCars = [
+  { id: 'car-ev1', floors: ['1F'], x: -9.65, z: 3.25, w: 1.35, d: 1.15, label: 'EV1' },
+  { id: 'car-12-1f', floors: ['1F'], x: 7.6, z: -6.4, w: 1.35, d: 1.35, label: '1·2' },
+  { id: 'car-34-1f', floors: ['1F'], x: 7.6, z: -1.0, w: 1.35, d: 1.35, label: '3·4' },
+  { id: 'car-56-1f', floors: ['1F'], x: 7.6, z: 4.0, w: 1.35, d: 1.35, label: '5·6' },
+  { id: 'car-12', floors: ['B1'], x: 12.05, z: -6.4, w: 1.35, d: 1.35, label: '1·2' },
+  { id: 'car-34', floors: ['B1'], x: 12.05, z: -1.0, w: 1.35, d: 1.35, label: '3·4' },
+  { id: 'car-56', floors: ['B1'], x: 12.05, z: 4.0, w: 1.35, d: 1.35, label: '5·6' },
 ];
 
-const elevatorNodeByFloor = { '1F': 'lift', B1: 'b1_lift', B2: 'b2_lift' };
+export const stationAreas = [
+  { id: '1f-taxi-label', floor: '1F', x: 12.35, z: -0.15, w: 2.6, d: 0.4, label: '→ 택시 타는곳', kind: 'concourse', color: '#24465a' },
+];
+
+export const AMENITY_STYLE = {
+  ticket: { label: '매표소', color: '#e7c56a' },
+  restaurant: { label: '식당', color: '#e08a3c' },
+  restroom: { label: '화장실', color: '#5eb0d4' },
+  seat: { label: '안내 좌석', color: '#c5d4e4' },
+  kiosk: { label: '키오스크', color: '#7d6ad8' },
+  counter: { label: '안내창구', color: '#3d8b7a' },
+  police: { label: '철도경찰', color: '#2c6b8a' },
+  escalator: { label: '에스컬레이터', color: '#8aa4c8' },
+  charger: { label: '충전기', color: '#1f8a72' },
+  shop: { label: '상점', color: '#e7a15a' },
+  cafe: { label: '커피집', color: '#c47a4a' },
+  lounge: { label: '고객라운지', color: '#d7c4a2' },
+  taxi: { label: '택시승강장', color: '#e7c56a' },
+  search: { label: '정보검색', color: '#7d6ad8' },
+};
+
+export const amenities = [
+  { id: '1f-charge', floor: '1F', x: -9.65, z: -4.15, w: 2.05, d: 3.6, kind: 'charger', label: '충전 부스' },
+  { id: '1f-flower', floor: '1F', x: -9.65, z: -1.6, w: 1.9, d: 0.95, kind: 'shop', label: '꽃집' },
+  { id: '1f-korean', floor: '1F', x: -9.65, z: 0.05, w: 1.9, d: 1.5, kind: 'restaurant', label: '한식당' },
+  { id: '1f-police', floor: '1F', x: -6.6, z: -5.5, w: 2.15, d: 1.05, kind: 'police' },
+  { id: '1f-info', floor: '1F', x: -3.55, z: -5.5, w: 2.15, d: 1.05, kind: 'counter', label: '안내창구' },
+  { id: '1f-restroom', floor: '1F', x: -0.3, z: -6.5, w: 2.1, d: 1.5, kind: 'restroom' },
+  { id: '1f-restaurant', floor: '1F', x: 9.7, z: -6.2, w: 1.45, d: 3.2, kind: 'restaurant' },
+  { id: '1f-cafe', floor: '1F', x: -1.9, z: 6.35, w: 2.4, d: 1.35, kind: 'cafe' },
+  { id: '1f-lounge', floor: '1F', x: 0.75, z: 6.35, w: 2.4, d: 1.35, kind: 'lounge' },
+  { id: 'b1-store', floor: 'B1', x: -9.05, z: -6.78, w: 3.8, d: 2.25, kind: 'shop', label: '편의점' },
+  { id: 'b1-info', floor: 'B1', x: -9.9, z: -3.78, w: 2.1, d: 2.15, kind: 'counter', label: '안내창구' },
+  { id: 'b1-bench-a', floor: 'B1', x: -5.2, z: -1.55, w: 2.0, d: 0.55, kind: 'seat', label: '' },
+  { id: 'b1-bench-b', floor: 'B1', x: -5.2, z: 0.7, w: 2.0, d: 0.55, kind: 'seat', label: '' },
+];
 
 export const buildings = [
-  { id: 'gate', x: -7, z: -2.5, w: 4, d: 2.5, label: '개찰구', color: '#173b55', floor: '1F' },
-  { id: 'hall', x: -2, z: -3.5, w: 4.2, d: 2, label: '맞이방 · 대합실', color: '#1c3854', floor: '1F' },
-  { id: 'lift', x: 3, z: -5, w: 3, d: 1.8, label: '엘리베이터 홀', color: '#25435e', floor: '1F' },
-  { id: 'platform', x: 8, z: -2, w: 4, d: 2.5, label: '승강장 연결', color: '#173b55', floor: '1F' },
-  { id: 'charge', x: -8, z: 4.5, w: 2.2, d: 1.5, label: '충전존', color: '#16443f', floor: '1F' },
-  { id: 'kiosk', x: 1, z: 5, w: 2, d: 1.4, label: '호출 키오스크', color: '#25435e', floor: '1F' },
-  { id: 'exit', x: 8, z: 4.5, w: 2.4, d: 1.5, label: '출구 · 환승', color: '#1c3854', floor: '1F' },
+  ...elevatorCars.map((car) => ({
+    id: `${car.id}-shaft`,
+    x: car.x,
+    z: car.z,
+    w: car.w,
+    d: car.d,
+    label: car.label,
+    color: '#0054A6',
+    floor: car.floors[0],
+  })),
+  ...amenities.map((item) => ({
+    ...item,
+    label: AMENITY_STYLE[item.kind].label,
+    color: AMENITY_STYLE[item.kind].color,
+  })),
   ...stationAreas.filter((area) => area.kind === 'track').map((area) => ({
     id: area.id,
     x: area.x,
@@ -77,39 +205,26 @@ export const buildings = [
 ];
 
 export const pillars = [
-  { id: 'p1', x: -4.2, z: -1.6, r: 0.38, floor: '1F' },
-  { id: 'p2', x: 2.2, z: 0.4, r: 0.38, floor: '1F' },
-  { id: 'p3', x: 5.4, z: -1.2, r: 0.34, floor: '1F' },
-  { id: 'p4', x: -1.2, z: 2.6, r: 0.32, floor: '1F' },
-  { id: 'b1-p1', x: -2.1, z: 3.6, r: 0.32, floor: 'B1' },
-  { id: 'b1-p2', x: 2.1, z: 3.6, r: 0.32, floor: 'B1' },
-  { id: 'b2-p1', x: -3.6, z: -1.6, r: 0.32, floor: 'B2' },
-  { id: 'b2-p2', x: -7.3, z: 3.3, r: 0.32, floor: 'B2' },
+  { id: 'p1', x: -0.4, z: -1.4, r: 0.28, floor: '1F' },
+  { id: 'p2', x: 2.4, z: 1.2, r: 0.28, floor: '1F' },
+  { id: 'b1-col', x: -3.55, z: -0.4, r: 0.22, floor: 'B1' },
 ];
 
-export const geofences = [
-  { id: 'stairs', x: 4, z: 2, r: 1.15, label: '휠체어 금지', floor: '1F' },
-  { id: 'b1-stairs', x: -1.2, z: 4.2, r: 0.72, label: '계단 · 휠체어 금지', floor: 'B1' },
-  { id: 'b2-stairs', x: -2.8, z: 3.7, r: 0.72, label: '계단 · 휠체어 금지', floor: 'B2' },
-];
+export const geofences = [];
 
 const WANDER_BY_FLOOR = {
   '1F': [
-    [-8.5, 1.6], [-5.5, 0.2], [-2.8, 1.8], [0.4, 1.2], [2.6, 1.6],
-    [6.2, 1.4], [9.2, 1.2], [-8.2, -0.2], [-4.8, 3.4], [0.2, 2.8],
-    [4.8, 3.6], [8.6, 2.6], [-1.6, -1.4], [4.6, -1.6], [9.4, -0.2],
+    [-6.2, -2.2], [-2.2, -1.4], [1.2, -1.6], [3.4, 0.4],
+    [-5.4, 1.6], [-1.2, 2.2], [2.6, 2.4], [4.2, -2.4],
   ],
   B1: [
-    [-8, -3.4], [-8, -1], [-8, 1.4], [8, -3.4], [8, -1], [8, 1.4],
-    [-4.4, 4.2], [-2.2, 4.2], [2.2, 4.2], [4.4, 4.2], [0, -4.8],
-  ],
-  B2: [
-    [-9.3, -1], [-7.2, -2.2], [-6, 0], [-4.5, 2.5], [-2.5, 1.6],
-    [0, -1.7], [3, -1.7], [6, -1.7], [9, -1.7], [5, 0.4], [8.8, 0.4],
+    [-7.6, -0.4], [-7.5, 1.8], [-6.2, -5.2],
+    [1.2, -6.7], [5.0, -6.7], [3.1, -1.6], [6.8, -1.6],
+    [1.2, 3.3], [5.0, 3.3], [8.0, 3.3],
   ],
 };
 
-const PED_FLOOR_DISTRIBUTION = ['1F', '1F', 'B1', 'B1', 'B2', 'B2'];
+const PED_FLOOR_DISTRIBUTION = ['1F', '1F', '1F', 'B1', 'B1', 'B1'];
 
 export function hypot(ax, az, bx, bz) {
   return Math.hypot(ax - bx, az - bz);
@@ -157,10 +272,11 @@ export function nearestNode(x, z, wheelchair = true, floor = '1F') {
 
 export function resolveMapTarget(x, z, floor = '1F', extras = []) {
   const radius = 0.42;
+  const bounds = boundsFor(floor);
   const isFree = (px, pz) => {
     if (
-      px < BOUNDS.minX + radius || px > BOUNDS.maxX - radius
-      || pz < BOUNDS.minZ + radius || pz > BOUNDS.maxZ - radius
+      px < bounds.minX + radius || px > bounds.maxX - radius
+      || pz < bounds.minZ + radius || pz > bounds.maxZ - radius
     ) return false;
     for (const building of buildings) {
       if ((building.floor || '1F') === floor && rectangleClearance(px, pz, building, radius) < MAP_CLEARANCE) return false;
@@ -189,12 +305,35 @@ export function resolveMapTarget(x, z, floor = '1F', extras = []) {
 }
 
 const PATH_STEP = 0.45;
-const ROBOT_RADIUS = 0.42;
+export const ROBOT_RADIUS = 0.42;
+
+function pointInRing(ring, x, z) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, zi] = ring[i];
+    const [xj, zj] = ring[j];
+    const crosses = (zi > z) !== (zj > z)
+      && x < ((xj - xi) * (z - zi)) / ((zj - zi) || 1e-9) + xi;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function onStationDeck(x, z, floor) {
+  if (!drivingRules.deck) {
+    const rings = footprintRings(floor);
+    if (rings.length < 2) return true;
+    return rings.some((ring) => pointInRing(ring, x, z));
+  }
+  return insideFootprint(x, z, floor, 0.32);
+}
 
 function mapPositionFree(x, z, floor, extras = []) {
+  const bounds = boundsFor(floor);
   if (
-    x < BOUNDS.minX + ROBOT_RADIUS || x > BOUNDS.maxX - ROBOT_RADIUS
-    || z < BOUNDS.minZ + ROBOT_RADIUS || z > BOUNDS.maxZ - ROBOT_RADIUS
+    x < bounds.minX + ROBOT_RADIUS || x > bounds.maxX - ROBOT_RADIUS
+    || z < bounds.minZ + ROBOT_RADIUS || z > bounds.maxZ - ROBOT_RADIUS
+    || !onStationDeck(x, z, floor)
   ) return false;
   for (const building of buildings) {
     if ((building.floor || '1F') === floor && rectangleClearance(x, z, building, ROBOT_RADIUS) < MAP_CLEARANCE) return false;
@@ -233,13 +372,14 @@ function findSameFloorPath(start, goal, floor, extras = []) {
     || hypot(resolvedGoal.x, resolvedGoal.z, goal.x, goal.z) > (goal.snapRadius || goal.radius || 0.62)
   ) return null;
 
+  const bounds = boundsFor(floor);
   const toCell = (point) => ({
-    x: Math.round((point.x - BOUNDS.minX) / PATH_STEP),
-    z: Math.round((point.z - BOUNDS.minZ) / PATH_STEP),
+    x: Math.round((point.x - bounds.minX) / PATH_STEP),
+    z: Math.round((point.z - bounds.minZ) / PATH_STEP),
   });
   const toPoint = (cell) => ({
-    x: BOUNDS.minX + cell.x * PATH_STEP,
-    z: BOUNDS.minZ + cell.z * PATH_STEP,
+    x: bounds.minX + cell.x * PATH_STEP,
+    z: bounds.minZ + cell.z * PATH_STEP,
   });
   const nearestFreeCell = (point) => {
     const origin = toCell(point);
@@ -324,40 +464,133 @@ function findSameFloorPath(start, goal, floor, extras = []) {
   return smoothed.slice(1).map((point) => ({ x: point.x, z: point.z, floor }));
 }
 
+function shaftByNodeId(id) {
+  if (!id) return null;
+  return SHAFTS.find((shaft) => shaft.gates.includes(id) || Object.values(shaft.floors).includes(id)) || null;
+}
+
+function platformShaftById(id) {
+  const match = /^p([1-6])[abc]$/.exec(id || '');
+  if (!match) return null;
+  const number = Number(match[1]);
+  const shaftId = number <= 2 ? '12' : number <= 4 ? '34' : '56';
+  return SHAFTS.find((shaft) => shaft.id === shaftId) || null;
+}
+
+function platformShaftByPosition(point) {
+  if (!point || (point.floor || '1F') !== 'B1' || point.x < -2) return null;
+  const shaftId = point.z <= -4.45 ? '12' : point.z <= 0.92 ? '34' : '56';
+  return SHAFTS.find((shaft) => shaft.id === shaftId) || null;
+}
+
+function boundShaft(point) {
+  if (!point) return null;
+  return platformShaftById(point.id)
+    || SHAFTS.find((shaft) => shaft.id === point.shaftId)
+    || platformShaftByPosition(point)
+    || null;
+}
+
+function shaftAhead(path, index = 0) {
+  if (!path) return null;
+  for (let cursor = index; cursor < path.length; cursor += 1) {
+    const point = path[cursor];
+    if (point && (point.elevator || (point.id && ELEVATOR_NODE_IDS.has(point.id)))) {
+      return shaftByNodeId(point.id);
+    }
+  }
+  return null;
+}
+
+function departurePoint(point, path, index, fallbackId) {
+  const platformId = platformShaftById(point?.id)
+    ? point.id
+    : (platformShaftById(fallbackId) ? fallbackId : undefined);
+  return {
+    x: point.x,
+    z: point.z,
+    floor: point.floor || '1F',
+    id: platformId,
+    shaftId: shaftAhead(path, index)?.id,
+  };
+}
+
+function doorOnRobotFloor(goal, floor) {
+  if (!goal?.id || !goal.floor || goal.floor === floor) return null;
+  const shaft = shaftByNodeId(goal.id);
+  if (!shaft?.floors[floor]) return null;
+  return nodeById(shaft.floors[floor]);
+}
+
+function nearestShaft(point) {
+  const floor = point.floor || '1F';
+  const choices = SHAFTS.filter((shaft) => shaft.floors[floor]);
+  return choices.reduce((best, shaft) => {
+    const node = nodeById(shaft.floors[floor]);
+    const distance = hypot(point.x, point.z, node.x, node.z);
+    if (!best || distance < best.distance) return { shaft, distance };
+    return best;
+  }, null).shaft;
+}
+
+function rideShaft(start, goal, shaft, extras) {
+  const startFloor = start.floor || '1F';
+  const goalFloor = goal.floor || startFloor;
+  if (startFloor === goalFloor) return findSameFloorPath(start, goal, startFloor, extras);
+  if (!shaft?.floors[startFloor] || !shaft.floors[goalFloor]) return null;
+  const sourceLift = nodeById(shaft.floors[startFloor]);
+  const destinationLift = nodeById(shaft.floors[goalFloor]);
+  const toLift = findSameFloorPath(start, sourceLift, startFloor, extras);
+  const tail = toLift && findSameFloorPath(destinationLift, goal, goalFloor, extras);
+  if (!toLift || !tail) return null;
+  return [
+    ...toLift,
+    { x: destinationLift.x, z: destinationLift.z, floor: goalFloor, elevator: true, id: destinationLift.id },
+    ...tail,
+  ];
+}
+
+function transferShafts(start, goal, fromShaft, toShaft, extras) {
+  const via = FLOOR_ORDER.find((floor) => fromShaft.floors[floor] && toShaft.floors[floor]) || '1F';
+  if (!fromShaft.floors[via] || !toShaft.floors[via]) return null;
+  const upstairs = rideShaft(start, nodeById(fromShaft.floors[via]), fromShaft, extras);
+  const across = findSameFloorPath(nodeById(fromShaft.floors[via]), nodeById(toShaft.floors[via]), via, extras);
+  const downstairs = rideShaft(nodeById(toShaft.floors[via]), goal, toShaft, extras);
+  if (!upstairs || !across || !downstairs) return null;
+  return [...upstairs, ...across, ...downstairs];
+}
+
 export function findMapPath(start, goal, extras = []) {
   if (!start || !goal) return null;
   const startFloor = start.floor || '1F';
   const goalFloor = goal.floor || startFloor;
   if (startFloor === goalFloor) {
-    return findSameFloorPath(start, goal, startFloor, extras);
+    const direct = findSameFloorPath(start, goal, startFloor, extras);
+    if (direct) return direct;
+    const fromDeck = shaftByNodeId(start.id) || nearestShaft(start);
+    const toDeck = shaftByNodeId(goal.id) || nearestShaft(goal);
+    if (!fromDeck || !toDeck || fromDeck.id === toDeck.id) return null;
+    return transferShafts(start, goal, fromDeck, toDeck, extras);
   }
-  const startIndex = FLOOR_ORDER.indexOf(startFloor);
-  const goalIndex = FLOOR_ORDER.indexOf(goalFloor);
-  if (startIndex < 0 || goalIndex < 0) return null;
-
-  const step = Math.sign(goalIndex - startIndex);
-  let current = start;
-  const path = [];
-  for (let index = startIndex; index !== goalIndex; index += step) {
-    const fromFloor = FLOOR_ORDER[index];
-    const toFloor = FLOOR_ORDER[index + step];
-    const sourceLift = nodeById(elevatorNodeByFloor[fromFloor]);
-    const destinationLift = nodeById(elevatorNodeByFloor[toFloor]);
-    const toLift = findSameFloorPath(current, sourceLift, fromFloor, extras);
-    if (!toLift) return null;
-    path.push(...toLift);
-    path.push({
-      x: destinationLift.x,
-      z: destinationLift.z,
-      floor: toFloor,
-      elevator: true,
+  const startShaft = boundShaft(start);
+  const goalShaft = boundShaft(goal);
+  if (startShaft && goalShaft && startShaft.id !== goalShaft.id) {
+    return transferShafts(start, goal, startShaft, goalShaft, extras);
+  }
+  const locked = startShaft || goalShaft;
+  if (locked) return rideShaft(start, goal, locked, extras);
+  const ranked = SHAFTS
+    .filter((shaft) => shaft.floors[startFloor] && shaft.floors[goalFloor])
+    .sort((a, b) => {
+      const doorA = nodeById(a.floors[startFloor]);
+      const doorB = nodeById(b.floors[startFloor]);
+      return hypot(start.x, start.z, doorA.x, doorA.z) - hypot(start.x, start.z, doorB.x, doorB.z);
     });
-    current = destinationLift;
+  for (const shaft of ranked) {
+    const ridden = rideShaft(start, goal, shaft, extras);
+    if (ridden) return ridden;
   }
-  const fromLift = findSameFloorPath(current, goal, goalFloor, extras);
-  if (!fromLift) return null;
-  path.push(...fromLift);
-  return path;
+  return null;
 }
 
 function crowdCost(ax, az, bx, bz, pedestrians) {
@@ -430,7 +663,7 @@ export function etaSeconds(robot) {
     return remaining / Math.max(0.28, robot.speed || 0.35);
   }
   const route = robot.route || [];
-  if (!route.length || robot.status === '대기' || robot.status === '승객 대기' || robot.status === '충전 중') return null;
+  if (!route.length || robot.status === '대기' || robot.status === '승객 대기' || robot.status === '하차 대기' || robot.status === '충전 중') return null;
   const next = nodeById(route[Math.min(robot.routeIndex + 1, route.length - 1)]);
   let remain = hypot(robot.x, robot.z, next.x, next.z) + (robot.floor === next.floor ? 0 : 6);
   if (robot.targetPoint) {
@@ -453,11 +686,25 @@ export function formatEta(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function nearestDeckCell(x, z, floor) {
+  if (mapPositionFree(x, z, floor)) return { x, z };
+  for (let distance = 0.18; distance <= 2.4; distance += 0.18) {
+    for (let index = 0; index < 16; index += 1) {
+      const angle = (index / 16) * Math.PI * 2;
+      const px = x + Math.cos(angle) * distance;
+      const pz = z + Math.sin(angle) * distance;
+      if (mapPositionFree(px, pz, floor)) return { x: px, z: pz };
+    }
+  }
+  return null;
+}
+
 function pushOut(x, z, radius, floor = '1F') {
+  const bounds = boundsFor(floor);
   let px = x;
   let pz = z;
-  px = clamp(px, BOUNDS.minX + radius, BOUNDS.maxX - radius);
-  pz = clamp(pz, BOUNDS.minZ + radius, BOUNDS.maxZ - radius);
+  px = clamp(px, bounds.minX + radius, bounds.maxX - radius);
+  pz = clamp(pz, bounds.minZ + radius, bounds.maxZ - radius);
 
   for (const b of buildings) {
     if ((b.floor || '1F') !== floor) continue;
@@ -495,13 +742,26 @@ function pushOut(x, z, radius, floor = '1F') {
     }
   }
 
+  if (drivingRules.rescue && radius >= 0.3 && !mapPositionFree(px, pz, floor)) {
+    const rescued = nearestDeckCell(px, pz, floor);
+    if (rescued) return rescued;
+  }
   return { x: px, z: pz };
 }
 
+function insideFootprint(x, z, floor, margin = 0.18) {
+  const rings = footprintRings(floor);
+  if (!rings.length) return true;
+  const samples = [[0, 0], [margin, 0], [-margin, 0], [0, margin], [0, -margin]];
+  return rings.some((ring) => samples.every(([dx, dz]) => pointInRing(ring, x + dx, z + dz)));
+}
+
 function pedestrianPositionFree(x, z, floor) {
+  const bounds = boundsFor(floor);
   if (
-    x < BOUNDS.minX + 0.2 || x > BOUNDS.maxX - 0.2
-    || z < BOUNDS.minZ + 0.2 || z > BOUNDS.maxZ - 0.2
+    x < bounds.minX + 0.2 || x > bounds.maxX - 0.2
+    || z < bounds.minZ + 0.2 || z > bounds.maxZ - 0.2
+    || !insideFootprint(x, z, floor, 0.18)
   ) return false;
   if (buildings.some((building) => (building.floor || '1F') === floor
     && rectangleClearance(x, z, building, 0.2) < 0.1)) return false;
@@ -512,16 +772,47 @@ function pedestrianPositionFree(x, z, floor) {
   return true;
 }
 
-function randomWander(floor = '1F') {
+function ringIndex(floor, x, z) {
+  const rings = footprintRings(floor);
+  if (rings.length < 2) return 0;
+  const inside = rings.findIndex((ring) => pointInRing(ring, x, z));
+  if (inside >= 0) return inside;
+  let best = 0;
+  let bestDistance = Infinity;
+  rings.forEach((ring, index) => {
+    const xs = ring.map((point) => point[0]);
+    const zs = ring.map((point) => point[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
+    const distance = hypot(x, z, cx, cz);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
+    }
+  });
+  return best;
+}
+
+function sameDeck(floor, ax, az, bx, bz) {
+  const rings = footprintRings(floor);
+  if (rings.length < 2) return true;
+  return ringIndex(floor, ax, az) === ringIndex(floor, bx, bz);
+}
+
+function randomWander(floor = '1F', near) {
   const choices = WANDER_BY_FLOOR[floor] || WANDER_BY_FLOOR['1F'];
+  const pool = near ? choices.filter(([x, z]) => sameDeck(floor, near.x, near.z, x, z)) : choices;
+  const usable = pool.length ? pool : (near ? [] : choices);
+  if (!usable.length) return { x: near.x, z: near.z };
   for (let i = 0; i < 12; i++) {
-    const [x, z] = choices[Math.floor(Math.random() * choices.length)];
+    const [x, z] = usable[Math.floor(Math.random() * usable.length)];
     const jx = x + (Math.random() - 0.5) * 1.4;
     const jz = z + (Math.random() - 0.5) * 1.1;
     if (pedestrianPositionFree(jx, jz, floor)) return { x: jx, z: jz };
   }
-  const fallback = nodes.find((node) => node.floor === floor && !node.forbidden);
-  return fallback ? { x: fallback.x, z: fallback.z } : { x: 0, z: 1.5 };
+  const fallback = nodes.find((node) => node.floor === floor && !node.forbidden && pedestrianPositionFree(node.x, node.z, floor));
+  if (fallback) return { x: fallback.x, z: fallback.z };
+  return near ? { x: near.x, z: near.z } : { x: 0, z: 1.5 };
 }
 
 function spawnPedestrians(count) {
@@ -559,6 +850,7 @@ function makeRobot({ id, name, x, z, floor = '1F', battery, status, target, rout
     route,
     routeIndex: 0,
     occupied,
+    passenger: null,
     color,
     cruise,
     speed: 0,
@@ -569,6 +861,9 @@ function makeRobot({ id, name, x, z, floor = '1F', battery, status, target, rout
     missCool: 0,
     pedestrianWait: 0,
     elevator: null,
+    returnPrompt: false,
+    returnHold: 0,
+    homeSeq: 0,
     targetPoint: null,
     originPoint: null,
     missionPath: null,
@@ -584,12 +879,12 @@ export function createWorld() {
       makeRobot({
         id: 'SW-01',
         name: '모빌리티 01',
-        x: -4,
-        z: 0.2,
+        x: -2.2,
+        z: -1.2,
         battery: 86,
         status: '이동 중',
-        target: 'platform',
-        route: ['hall', 'info', 'lift', 'platform'],
+        target: 'p1a',
+        route: ['hall', 'p1a'],
         occupied: true,
         color: '#20e3cf',
         cruise: 0.82,
@@ -597,13 +892,13 @@ export function createWorld() {
       makeRobot({
         id: 'SW-02',
         name: '모빌리티 02',
-        x: 1,
-        z: 4.2,
+        x: -6.8,
+        z: -0.6,
         floor: 'B1',
         battery: 64,
         status: '승객 대기',
-        target: 'b1_platform_east',
-        route: ['b1_platform_east'],
+        target: 'b2_info',
+        route: ['b2_info'],
         occupied: false,
         color: '#6aa7ff',
         cruise: 0.78,
@@ -611,9 +906,9 @@ export function createWorld() {
       makeRobot({
         id: 'SW-03',
         name: '모빌리티 03',
-        x: -5.4,
-        z: 0.2,
-        floor: 'B2',
+        x: 2.2,
+        z: 4.0,
+        floor: 'B1',
         battery: 18,
         status: '충전 복귀',
         target: 'charge',
@@ -629,26 +924,30 @@ export function createWorld() {
     requestCount: 2,
     eventLog: [
       stampEvent('success', '가상 역사 시뮬레이터 기동 · 휠체어 3대'),
-      stampEvent('info', '1F · B1 · B2 보행자 20명 스폰 · 혼잡 회피 활성'),
-      stampEvent('warn', 'SW-03 배터리 20% 미만 · 충전 복귀 경로 생성'),
+      stampEvent('info', '지하 1층 · 지하 2층 보행자 스폰'),
+      stampEvent('warn', 'SW-03 배터리 18% · 지하 1층 충전 부스로 복귀'),
     ],
   };
   const robots = world.robots.map((robot) => {
     if (!['이동 중', '충전 복귀'].includes(robot.status)) return robot;
-    const destination = nodeById(robot.target);
-    const targetPoint = {
-      x: destination.x,
-      z: destination.z,
-      floor: destination.floor,
-      radius: destination.radius,
-    };
+    const headingHome = robot.target === 'charge';
+    const destination = headingHome ? null : nodeById(robot.target);
+    const targetPoint = headingHome
+      ? { ...chargeDock(robot.id), id: 'charge', radius: 0.75 }
+      : {
+        id: destination.id,
+        x: destination.x,
+        z: destination.z,
+        floor: destination.floor,
+        radius: destination.radius,
+      };
     const missionPath = findMapPath(
       { x: robot.x, z: robot.z, floor: robot.floor },
       targetPoint,
     );
     return {
       ...robot,
-      route: [destination.id],
+      route: [headingHome ? 'charge' : destination.id],
       targetPoint,
       missionPath,
       missionPathIndex: 0,
@@ -666,14 +965,15 @@ export function addRobot(world) {
       ? candidate
       : leastPopulated,
   FLOOR_ORDER[0]);
-  const candidates = [
-    { x: -9.8, z: 1.8 },
-    { x: -6.2, z: 2.2 },
-    { x: 0, z: 5.9 },
-    { x: 6.4, z: 5.7 },
-    { x: 9.8, z: 1.7 },
-    { x: -10, z: -0.5 },
-  ];
+  const candidates = floor === 'B1'
+    ? [{ x: -6.8, z: -0.6 }, { x: -3.2, z: -6.7 }, { x: 4.0, z: -1.6 }, { x: 4.0, z: 3.3 }, { x: 8.0, z: 3.3 }]
+    : [
+      { x: -2.2, z: -1.2 },
+      { x: -6.2, z: -2.2 },
+      { x: 1.4, z: -1.6 },
+      { x: 3.2, z: 1.2 },
+      { x: -5.4, z: 1.8 },
+    ];
   const spawn = candidates.find((candidate) =>
     mapPositionFree(candidate.x, candidate.z, floor, world.extras)
       && world.robots.every((robot) => robot.floor !== floor || hypot(robot.x, robot.z, candidate.x, candidate.z) >= 1.1),
@@ -707,9 +1007,9 @@ export function addRobot(world) {
 
 export function scenarioObstacles() {
   return [
-    { id: 'bag-1', x: -1.2, z: 0.15, r: 0.42, kind: 'luggage', floor: '1F' },
-    { id: 'bag-2', x: 0.6, z: 2.6, r: 0.36, kind: 'cone', floor: 'B1' },
-    { id: 'bag-3', x: 4.2, z: -0.2, r: 0.4, kind: 'luggage', floor: 'B2' },
+    { id: 'bag-1', x: -1.2, z: -0.4, r: 0.42, kind: 'luggage', floor: '1F' },
+    { id: 'bag-2', x: 4.0, z: -6.7, r: 0.36, kind: 'cone', floor: 'B1' },
+    { id: 'bag-3', x: 4.0, z: 3.3, r: 0.4, kind: 'luggage', floor: 'B1' },
   ];
 }
 
@@ -751,12 +1051,14 @@ function chooseSafeVelocity(robot, goal, pedestrians, robots, extras) {
         const time = (horizon * step) / 6;
         const x = robot.x + vx * time;
         const z = robot.z + vz * time;
+        const bounds = boundsFor(robot.floor);
         let clearance = Math.min(
-          x - BOUNDS.minX - radius,
-          BOUNDS.maxX - x - radius,
-          z - BOUNDS.minZ - radius,
-          BOUNDS.maxZ - z - radius,
+          x - bounds.minX - radius,
+          bounds.maxX - x - radius,
+          z - bounds.minZ - radius,
+          bounds.maxZ - z - radius,
         );
+        if (!onStationDeck(x, z, robot.floor)) clearance = Math.min(clearance, -0.45);
         for (const building of buildings) {
           if ((building.floor || '1F') !== robot.floor) continue;
           clearance = Math.min(clearance, rectangleClearance(x, z, building, radius));
@@ -780,8 +1082,9 @@ function chooseSafeVelocity(robot, goal, pedestrians, robots, extras) {
           clearance = Math.min(clearance, hypot(x, z, fence.x, fence.z) - fence.r - radius);
         }
         for (const other of robots) {
-          if (other.id === robot.id || other.floor !== robot.floor) continue;
-          clearance = Math.min(clearance, hypot(x, z, other.x, other.z) - 0.9);
+          if (other.id === robot.id || other.floor !== robot.floor || other.elevator) continue;
+          const peer = hypot(x, z, other.x, other.z) - 0.78;
+          if (peer < 0.08) penalty += (0.08 - peer) * 14;
         }
 
         minimumClearance = Math.min(minimumClearance, clearance);
@@ -803,57 +1106,335 @@ function chooseSafeVelocity(robot, goal, pedestrians, robots, extras) {
   return best;
 }
 
+function structureAvoid(x, z, floor) {
+  let ax = 0;
+  let az = 0;
+  for (const building of buildings) {
+    if ((building.floor || '1F') !== floor) continue;
+    const hx = building.w / 2;
+    const hz = building.d / 2;
+    const dx = x - building.x;
+    const dz = z - building.z;
+    const nearX = clamp(dx, -hx, hx);
+    const nearZ = clamp(dz, -hz, hz);
+    const ox = dx - nearX;
+    const oz = dz - nearZ;
+    const dist = Math.hypot(ox, oz);
+    const reach = 0.95;
+    if (dist < 1e-3) {
+      const overlapX = hx - Math.abs(dx);
+      const overlapZ = hz - Math.abs(dz);
+      if (overlapX < overlapZ) ax += Math.sign(dx || 1);
+      else az += Math.sign(dz || 1);
+    } else if (dist < reach) {
+      const mag = (reach - dist) / reach;
+      ax += (ox / dist) * mag;
+      az += (oz / dist) * mag;
+    }
+  }
+  for (const pillar of pillars) {
+    if ((pillar.floor || '1F') !== floor) continue;
+    const dx = x - pillar.x;
+    const dz = z - pillar.z;
+    const dist = Math.hypot(dx, dz) || 0.0001;
+    const reach = pillar.r + 0.75;
+    if (dist < reach) {
+      const mag = (reach - dist) / reach;
+      ax += (dx / dist) * mag;
+      az += (dz / dist) * mag;
+    }
+  }
+  const probe = 0.4;
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index / 8) * Math.PI * 2;
+    const sx = Math.cos(angle) * probe;
+    const sz = Math.sin(angle) * probe;
+    if (!insideFootprint(x + sx, z + sz, floor, 0.04)) {
+      ax -= Math.cos(angle) * 0.7;
+      az -= Math.sin(angle) * 0.7;
+    }
+  }
+  return { x: ax, z: az };
+}
+
+function choosePedestrianStep(x, z, tx, tz, floor, speed) {
+  const dx = tx - x;
+  const dz = tz - z;
+  const dist = Math.hypot(dx, dz) || 1;
+  const avoid = structureAvoid(x, z, floor);
+  let dirX = dx / dist + avoid.x * 0.85;
+  let dirZ = dz / dist + avoid.z * 0.85;
+  const dirLen = Math.hypot(dirX, dirZ) || 1;
+  dirX /= dirLen;
+  dirZ /= dirLen;
+  const desired = Math.atan2(dirZ, dirX);
+  const look = 0.62;
+  let best = null;
+  for (const turn of [0, 0.35, -0.35, 0.75, -0.75, 1.2, -1.2, 1.7, -1.7, Math.PI]) {
+    const angle = desired + turn;
+    const cx = Math.cos(angle);
+    const sz = Math.sin(angle);
+    if (!pedestrianPositionFree(x + cx * look, z + sz * look, floor)) continue;
+    if (!pedestrianPositionFree(x + cx * look * 0.45, z + sz * look * 0.45, floor)) continue;
+    const progress = (dx * cx + dz * sz) / dist;
+    const turnCost = Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn)));
+    const score = progress * 1.6 - turnCost * 0.28;
+    if (!best || score > best.score) best = { vx: cx * speed, vz: sz * speed, score };
+  }
+  return best;
+}
+
+function nearestFreePedestrian(x, z, floor) {
+  for (let radius = 0.12; radius <= 3.2; radius += 0.2) {
+    for (let index = 0; index < 16; index += 1) {
+      const angle = (index / 16) * Math.PI * 2;
+      const nx = x + Math.cos(angle) * radius;
+      const nz = z + Math.sin(angle) * radius;
+      if (pedestrianPositionFree(nx, nz, floor)) return { x: nx, z: nz };
+    }
+  }
+  return null;
+}
+
+function diagonalEscape(x, z, floor, tx, tz, step) {
+  const desired = Math.atan2(tz - z, tx - x);
+  let best = null;
+  for (let index = 0; index < 16; index += 1) {
+    const turn = (index / 16) * Math.PI * 2;
+    const angle = desired + turn;
+    const nx = x + Math.cos(angle) * step;
+    const nz = z + Math.sin(angle) * step;
+    if (!pedestrianPositionFree(nx, nz, floor)) continue;
+    const progress = Math.cos(turn);
+    const score = progress - Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn))) * 0.15;
+    if (!best || score > best.score) best = { x: nx, z: nz, vx: Math.cos(angle), vz: Math.sin(angle), score };
+  }
+  return best;
+}
+
 function tickPedestrians(pedestrians, robots, extras, dt) {
   return pedestrians.map((p) => {
+    const floor = p.floor || '1F';
+    if (!pedestrianPositionFree(p.x, p.z, floor)) {
+      const rescued = nearestFreePedestrian(p.x, p.z, floor);
+      if (rescued) {
+        const step = Math.max(0.045, p.speed * dt);
+        const escape = diagonalEscape(p.x, p.z, floor, rescued.x, rescued.z, step);
+        const dx = rescued.x - p.x;
+        const dz = rescued.z - p.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        const hop = Math.min(step, dist);
+        const moved = escape || {
+          x: p.x + (dx / dist) * hop,
+          z: p.z + (dz / dist) * hop,
+          vx: dx / dist,
+          vz: dz / dist,
+        };
+        return {
+          ...p,
+          x: moved.x,
+          z: moved.z,
+          vx: moved.vx * p.speed,
+          vz: moved.vz * p.speed,
+          stuck: 0,
+        };
+      }
+    }
     let pause = p.pause - dt;
     let tx = p.tx;
     let tz = p.tz;
-    if (hypot(p.x, p.z, tx, tz) < 0.45) {
-      const g = randomWander(p.floor || '1F');
+    let stuck = p.stuck || 0;
+    let bestGoal = p.bestGoal ?? hypot(p.x, p.z, tx, tz);
+    let goalStall = p.goalStall || 0;
+    const goalFar = !sameDeck(floor, p.x, p.z, tx, tz) || !pedestrianPositionFree(tx, tz, floor);
+    if (hypot(p.x, p.z, tx, tz) < 0.45 || goalFar || goalStall > 2.4) {
+      const g = randomWander(floor, p);
       tx = g.x;
       tz = g.z;
-      pause = Math.random() < 0.22 ? 1.2 + Math.random() * 2.4 : 0;
+      bestGoal = hypot(p.x, p.z, tx, tz);
+      goalStall = 0;
+      if (hypot(p.x, p.z, p.tx, p.tz) < 0.45) pause = Math.random() < 0.22 ? 1.2 + Math.random() * 2.4 : 0.15;
     }
 
     let vx = 0;
     let vz = 0;
     if (pause <= 0) {
-      const dx = tx - p.x;
-      const dz = tz - p.z;
-      const d = Math.hypot(dx, dz) || 1;
-      vx = (dx / d) * p.speed;
-      vz = (dz / d) * p.speed;
+      const step = choosePedestrianStep(p.x, p.z, tx, tz, floor, p.speed);
+      if (step) {
+        vx = step.vx;
+        vz = step.vz;
+      }
     }
 
+    let sepX = 0;
+    let sepZ = 0;
     for (const o of pedestrians) {
-      if (o.id === p.id || (o.floor || '1F') !== (p.floor || '1F')) continue;
+      if (o.id === p.id || (o.floor || '1F') !== floor) continue;
       const r = repulsion(p.x, p.z, o.x, o.z, 0.7);
-      vx += r.x * 1.4;
-      vz += r.z * 1.4;
+      sepX += r.x * 1.4;
+      sepZ += r.z * 1.4;
     }
     for (const rbt of robots) {
-      if (rbt.floor !== (p.floor || '1F')) continue;
+      if (rbt.floor !== floor) continue;
       const r = repulsion(p.x, p.z, rbt.x, rbt.z, 1.05);
-      vx += r.x * 2.1;
-      vz += r.z * 2.1;
+      sepX += r.x * 2.1;
+      sepZ += r.z * 2.1;
     }
-    for (const e of extras) {
-      if ((e.floor || '1F') !== (p.floor || '1F')) continue;
-      const r = repulsion(p.x, p.z, e.x, e.z, e.r + 0.45);
-      vx += r.x * 1.8;
-      vz += r.z * 1.8;
+    for (const extra of extras) {
+      if ((extra.floor || '1F') !== floor) continue;
+      const r = repulsion(p.x, p.z, extra.x, extra.z, extra.r + 0.45);
+      sepX += r.x * 1.8;
+      sepZ += r.z * 1.8;
     }
 
+    const crowdingRobot = robots.find((robot) => robot.floor === floor && hypot(p.x, p.z, robot.x, robot.z) < 1.15);
+    if (crowdingRobot && pause > 0) pause = 0;
+    const combined = Math.hypot(vx + sepX, vz + sepZ);
+    const speedCap = p.speed * 1.15;
+    if (combined > speedCap) {
+      const scale = speedCap / combined;
+      vx = (vx + sepX) * scale;
+      vz = (vz + sepZ) * scale;
+    } else {
+      vx += sepX;
+      vz += sepZ;
+    }
     let x = p.x + vx * dt;
     let z = p.z + vz * dt;
-    ({ x, z } = pushOut(x, z, 0.16, p.floor));
-    return { ...p, x, z, vx, vz, tx, tz, pause };
+    if (!pedestrianPositionFree(x, z, floor)) {
+      const escape = diagonalEscape(p.x, p.z, floor, tx, tz, Math.max(0.045, p.speed * dt));
+      if (escape) {
+        x = escape.x;
+        z = escape.z;
+        vx = escape.vx * p.speed;
+        vz = escape.vz * p.speed;
+      } else {
+        x = p.x;
+        z = p.z;
+        vx = 0;
+        vz = 0;
+      }
+    }
+
+    const moved = hypot(x, z, p.x, p.z);
+    const goalDistance = hypot(x, z, tx, tz);
+    if (goalDistance < bestGoal - 0.22) {
+      bestGoal = goalDistance;
+      goalStall = 0;
+    } else if (pause <= 0) goalStall += dt;
+    if (pause <= 0 && moved < 0.01) stuck += dt;
+    else stuck = 0;
+    if (stuck > 0.75) {
+      const g = randomWander(floor, p);
+      tx = g.x;
+      tz = g.z;
+      bestGoal = hypot(p.x, p.z, tx, tz);
+      goalStall = 0;
+      stuck = 0;
+      pause = 0.25;
+      x = p.x;
+      z = p.z;
+      vx = 0;
+      vz = 0;
+    }
+
+    const pushed = pushOut(x, z, 0.16, floor);
+    if (pedestrianPositionFree(pushed.x, pushed.z, floor) && hypot(pushed.x, pushed.z, x, z) < 0.08) {
+      x = pushed.x;
+      z = pushed.z;
+    }
+    const realSpeed = hypot(x, z, p.x, p.z) / Math.max(dt, 1e-4);
+    if (realSpeed < 0.12) {
+      vx = 0;
+      vz = 0;
+    } else {
+      vx = (x - p.x) / Math.max(dt, 1e-4);
+      vz = (z - p.z) / Math.max(dt, 1e-4);
+    }
+    return { ...p, x, z, vx, vz, tx, tz, pause, stuck, bestGoal, goalStall };
   });
 }
 
 function movingStatus(status) {
   return status === '이동 중' || status === '충전 복귀' || status === '회피 중'
     || status === '경로 재계획' || status === '보행자 대기';
+}
+
+function upcomingDoor(robot) {
+  const path = robot.missionPath;
+  if (!path?.length || robot.elevator) return null;
+  const index = Math.min(robot.missionPathIndex || 0, path.length - 1);
+  for (let cursor = index; cursor < Math.min(path.length, index + 4); cursor += 1) {
+    const goal = path[cursor];
+    if (!goal || (goal.floor || robot.floor) === robot.floor) continue;
+    return doorOnRobotFloor(goal, robot.floor);
+  }
+  return null;
+}
+
+function elevatorQueuePlace(robot, robots) {
+  const door = upcomingDoor(robot);
+  if (!door || hypot(robot.x, robot.z, door.x, door.z) > 3.4) return 0;
+  const riding = robots.some((other) => (
+    other.id !== robot.id
+    && other.elevator
+    && other.floor === robot.floor
+    && hypot(other.x, other.z, door.x, door.z) < 1.3
+  ));
+  const waiting = robots.filter((other) => {
+    if (other.elevator || other.floor !== robot.floor) return false;
+    if (hypot(other.x, other.z, door.x, door.z) > 3.4) return false;
+    const source = other.id === robot.id ? robot : other;
+    const otherDoor = upcomingDoor(source);
+    return otherDoor && otherDoor.id === door.id;
+  });
+  waiting.sort((a, b) => {
+    const gapA = hypot(a.x, a.z, door.x, door.z);
+    const gapB = hypot(b.x, b.z, door.x, door.z);
+    if (Math.abs(gapA - gapB) > 0.2) return gapA - gapB;
+    return a.id < b.id ? -1 : 1;
+  });
+  const place = waiting.findIndex((other) => other.id === robot.id);
+  return (place < 0 ? 0 : place) + (riding ? 1 : 0);
+}
+
+function queueDirection(door, robot, robots) {
+  let sx = 0;
+  let sz = 0;
+  for (const other of robots) {
+    if (other.elevator || other.floor !== robot.floor) continue;
+    const dx = other.x - door.x;
+    const dz = other.z - door.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 0.2 || len > 5.5) continue;
+    const source = other.id === robot.id ? robot : other;
+    const otherDoor = upcomingDoor(source);
+    if (!otherDoor || otherDoor.id !== door.id) continue;
+    sx += dx / len;
+    sz += dz / len;
+  }
+  const len = Math.hypot(sx, sz);
+  if (len < 0.2) {
+    const dx = robot.x - door.x;
+    const dz = robot.z - door.z;
+    const own = Math.hypot(dx, dz) || 1;
+    return { x: dx / own, z: dz / own };
+  }
+  return { x: sx / len, z: sz / len };
+}
+
+function queueHoldPoint(door, robot, robots, radius, extras) {
+  const axis = queueDirection(door, robot, robots);
+  const base = Math.atan2(axis.z, axis.x);
+  for (const turn of [0, 0.35, -0.35, 0.7, -0.7]) {
+    const x = door.x + Math.cos(base + turn) * radius;
+    const z = door.z + Math.sin(base + turn) * radius;
+    if (mapPositionFree(x, z, robot.floor, extras)) return { x, z };
+  }
+  return {
+    x: door.x + Math.cos(base) * radius,
+    z: door.z + Math.sin(base) * radius,
+  };
 }
 
 function tickRobot(robot, ctx) {
@@ -866,6 +1447,16 @@ function tickRobot(robot, ctx) {
 
   if (flags.estop) {
     return { ...next, speed: 0, status: '비상 정지', avoiding: false };
+  }
+
+  if (next.returnPrompt) {
+    return {
+      ...next,
+      returnHold: Math.max(0, (next.returnHold ?? 10) - dt),
+      speed: 0,
+      status: '하차 대기',
+      avoiding: false,
+    };
   }
 
   if (next.elevator) {
@@ -899,26 +1490,96 @@ function tickRobot(robot, ctx) {
   else battery = Math.max(4, battery - 0.12 * dt);
 
   if (
-    flags.autoReturn &&
-    !next.occupied &&
-    battery < 20 &&
+    battery < 10 &&
     next.status !== '충전 중' &&
-    next.target !== 'charge'
+    next.target !== 'charge' &&
+    !next.elevator &&
+    next.replanCool <= 0
   ) {
-    const from = nearestNode(next.x, next.z, true, next.floor).id;
-    const route = findRoute(from, 'charge', pedestrians, true);
-    events.push(stampEvent('info', `${next.id} 배터리 ${Math.round(battery)}% · 충전 복귀`));
-    next = { ...next, battery, status: '충전 복귀', target: 'charge', route, routeIndex: 0, occupied: false, stuck: 0 };
+    const dock = { ...chargeDock(next.id), id: 'charge', radius: 0.75 };
+    const missionPath = findMapPath(
+      departurePoint(next, next.missionPath, next.missionPathIndex, next.targetPoint?.id || next.target),
+      dock,
+      extras,
+    );
+    if (missionPath?.length) {
+      events.push(stampEvent('warn', `${next.id} 배터리 ${Math.round(battery)}% · 지하 1층 충전 부스로 자동 복귀`));
+      next = {
+        ...next,
+        battery,
+        status: '충전 복귀',
+        target: 'charge',
+        targetPoint: dock,
+        missionPath,
+        missionPathIndex: 0,
+        missionStartIndex: 0,
+        plannedMissionPath: missionPath,
+        occupied: false,
+        passenger: null,
+        returnPrompt: false,
+        returnHold: 0,
+        route: ['charge'],
+        routeIndex: 0,
+        stuck: 0,
+        originPoint: null,
+      };
+    } else {
+      next = { ...next, battery, replanCool: 2 };
+    }
   } else {
     next = { ...next, battery };
+  }
+
+  const ownDock = chargeDock(next.id);
+  if (
+    next.target === 'charge'
+    && next.status !== '충전 중'
+    && !next.elevator
+    && next.floor === ownDock.floor
+    && hypot(next.x, next.z, ownDock.x, ownDock.z) < 1.05
+  ) {
+    events.push(stampEvent('success', `${next.id} 충전 스테이션 도착`));
+    return {
+      ...next,
+      x: ownDock.x,
+      z: ownDock.z,
+      floor: ownDock.floor,
+      speed: 0,
+      status: '충전 중',
+      targetPoint: null,
+      originPoint: null,
+      missionPath: null,
+      missionPathIndex: 0,
+      missionStartIndex: 0,
+      plannedMissionPath: null,
+      occupied: false,
+      passenger: null,
+      returnPrompt: false,
+      returnHold: 0,
+      avoiding: false,
+      stuck: 0,
+      homeSeq: (next.homeSeq || 0) + 1,
+    };
   }
 
   if (next.status === '충전 중') {
     if (battery >= 99.5) {
       events.push(stampEvent('success', `${next.id} 충전 완료 · 대기 전환`));
-      return { ...next, battery: 100, status: '대기', speed: 0, occupied: false };
+      return {
+        ...next,
+        battery: 100,
+        status: '대기',
+        speed: 0,
+        occupied: false,
+        target: null,
+        targetPoint: null,
+        missionPath: null,
+        plannedMissionPath: null,
+        route: [],
+        routeIndex: 0,
+      };
     }
-    return { ...next, speed: 0 };
+    return { ...next, speed: 0, x: ownDock.x, z: ownDock.z, floor: ownDock.floor };
   }
 
   if (!movingStatus(next.status)) {
@@ -932,9 +1593,29 @@ function tickRobot(robot, ctx) {
   let originPoint = next.originPoint;
   let targetPoint = next.targetPoint;
   const missionPathActive = Array.isArray(missionPath) && missionPath.length > 0;
+  const waypointBlocked = missionPathActive
+    && missionPathIndex < missionPath.length
+    && missionPath[missionPathIndex].floor === next.floor
+    && !missionPath[missionPathIndex].elevator
+    && !segmentIsFree(
+      { x: next.x, z: next.z },
+      missionPath[missionPathIndex],
+      next.floor,
+      extras,
+    );
+  if (waypointBlocked) {
+    const ahead = missionPath[missionPathIndex + 1];
+    if (
+      ahead
+      && ahead.floor === next.floor
+      && !ahead.elevator
+      && segmentIsFree({ x: next.x, z: next.z }, ahead, next.floor, extras)
+    ) {
+      missionPathIndex += 1;
+    }
+  }
   if (
-    missionPathActive
-    && next.replanCool <= 0
+    waypointBlocked
     && missionPathIndex < missionPath.length
     && missionPath[missionPathIndex].floor === next.floor
     && !segmentIsFree(
@@ -943,8 +1624,9 @@ function tickRobot(robot, ctx) {
       next.floor,
       extras,
     )
+    && next.replanCool <= 0
   ) {
-    const currentPoint = { x: next.x, z: next.z, floor: next.floor };
+    const currentPoint = departurePoint({ x: next.x, z: next.z, floor: next.floor }, missionPath, missionPathIndex);
     const mustReachOrigin = next.originPoint && missionPathIndex < missionStartIndex;
     const toMilestone = findMapPath(
       currentPoint,
@@ -990,18 +1672,28 @@ function tickRobot(robot, ctx) {
   const gd = Math.hypot(gdx, gdz) || 1;
   const legacyElevatorFloor = !missionPathActive && !isPastLastWaypoint
     && nodeById(goalId).floor !== next.floor
-    && Object.values(elevatorNodeByFloor).includes(route[currentRouteIndex])
+    && ELEVATOR_NODE_IDS.has(route[currentRouteIndex])
     ? nodeById(goalId).floor
     : null;
+  const localDoor = doorOnRobotFloor(goal, next.floor);
+  const queueDoor = localDoor || upcomingDoor(next);
+  const boardGap = (localDoor || queueDoor)
+    ? hypot((localDoor || queueDoor).x, (localDoor || queueDoor).z, next.x, next.z)
+    : gd;
+  const queuePlace = elevatorQueuePlace(next, robots);
+  const queued = queuePlace > 0 && Boolean(queueDoor);
+  const queueSlot = queued
+    ? queueHoldPoint(queueDoor, next, robots, 1.5 + (queuePlace - 1) * 1.35, extras)
+    : null;
+  const steer = queueSlot || localDoor || goal;
 
   if (
-    ((missionPathActive && goal.floor !== next.floor) || legacyElevatorFloor)
-    && gd < 0.42
+    !queued
+    && ((missionPathActive && goal.floor !== next.floor) || legacyElevatorFloor)
+    && boardGap < 0.9
   ) {
     const destinationFloor = missionPathActive ? goal.floor : legacyElevatorFloor;
-    const destinationId = missionPathActive
-      ? elevatorNodeByFloor[destinationFloor]
-      : goalId;
+    const destinationId = goal.id || goalId;
     events.push(stampEvent('info', `${next.id} 엘리베이터 탑승 · ${destinationFloor} 이동`));
     return {
       ...next,
@@ -1018,15 +1710,16 @@ function tickRobot(robot, ctx) {
     };
   }
 
-  let wx = (gdx / gd) * next.cruise;
-  let wz = (gdz / gd) * next.cruise;
+  const steerDistance = Math.hypot(steer.x - next.x, steer.z - next.z) || 1;
+  let wx = ((steer.x - next.x) / steerDistance) * next.cruise;
+  let wz = ((steer.z - next.z) / steerDistance) * next.cruise;
 
   let nearest = 8;
   let avoidX = 0;
   let avoidZ = 0;
   const currentPedestrians = pedestrians.filter((p) => (p.floor || '1F') === next.floor);
-  const directionX = gdx / gd;
-  const directionZ = gdz / gd;
+  const directionX = (steer.x - next.x) / steerDistance;
+  const directionZ = (steer.z - next.z) / steerDistance;
   const pedestrianBlocked = currentPedestrians.some((pedestrian) => {
     const dx = pedestrian.x - next.x;
     const dz = pedestrian.z - next.z;
@@ -1034,11 +1727,12 @@ function tickRobot(robot, ctx) {
     const side = Math.abs(dx * directionZ - dz * directionX);
     const distance = Math.hypot(dx, dz);
     const approaching = pedestrian.vx * -directionX + pedestrian.vz * -directionZ > 0.12;
-    return distance < 1.05 || (forward > 0 && forward < 1.9 && side < 0.62)
-      || (approaching && forward > 0 && forward < 2.4 && side < 0.85);
+    return distance < 0.95 || (forward > 0 && forward < 1.55 && side < 0.55)
+      || (approaching && forward > 0 && forward < 2.1 && side < 0.7);
   });
-  let pedestrianWait = Math.max(0, next.pedestrianWait - dt);
-  if (pedestrianBlocked) pedestrianWait = 0.45;
+  const hardContact = currentPedestrians.some((pedestrian) => hypot(pedestrian.x, pedestrian.z, next.x, next.z) < 0.5);
+  let pedestrianWait = pedestrianBlocked ? (next.pedestrianWait || 0) + dt : 0;
+  const yielding = pedestrianBlocked && pedestrianWait < (hardContact ? 1.35 : 0.75);
 
   const addAvoid = (ax, az, radius, weight) => {
     const r = repulsion(next.x, next.z, ax, az, radius);
@@ -1060,24 +1754,81 @@ function tickRobot(robot, ctx) {
     if ((g.floor || '1F') === next.floor) addAvoid(g.x, g.z, g.r + 0.35, 2.6);
   }
   for (const other of robots) {
-    if (other.id === next.id || other.floor !== next.floor) continue;
-    addAvoid(other.x, other.z, 1.35, 2.0);
+    if (other.id === next.id || other.floor !== next.floor || other.elevator) continue;
+    const gap = hypot(next.x, next.z, other.x, other.z);
+    if (gap < 0.92) {
+      const push = repulsion(next.x, next.z, other.x, other.z, 0.92);
+      avoidX += push.x * 1.1;
+      avoidZ += push.z * 1.1;
+    }
   }
 
-  const safeVelocity = chooseSafeVelocity(next, goal, currentPedestrians, robots, extras);
-  wx = pedestrianBlocked || pedestrianWait > 0
-    ? 0
-    : safeVelocity.x + avoidX * next.cruise * 0.25;
-  wz = pedestrianBlocked || pedestrianWait > 0
-    ? 0
-    : safeVelocity.z + avoidZ * next.cruise * 0.25;
+  const safeVelocity = chooseSafeVelocity(next, steer, currentPedestrians, robots, extras);
+  const nearElevatorDoor = Boolean(localDoor) && boardGap < 1.7;
+  const holdingForPedestrian = (yielding || hardContact) && !nearElevatorDoor && pedestrianWait < 1.35;
+  let chase = next.chase || { best: steerDistance, stall: 0, commit: 0 };
+  if (steerDistance < chase.best - 0.18) chase = { best: steerDistance, stall: 0, commit: Math.max(0, chase.commit - dt) };
+  else if (chase.commit > 0) chase = { best: Math.min(chase.best, steerDistance), stall: 0, commit: Math.max(0, chase.commit - dt) };
+  else chase = chase.stall + dt > 2.2
+    ? { best: steerDistance, stall: 0, commit: 1.8 }
+    : { best: chase.best, stall: chase.stall + dt, commit: 0 };
+  if (holdingForPedestrian) {
+    wx = 0;
+    wz = 0;
+  } else {
+    wx = safeVelocity.x + avoidX * next.cruise * 0.25;
+    wz = safeVelocity.z + avoidZ * next.cruise * 0.25;
+    if (Math.hypot(wx, wz) < 0.08) {
+      let bestSide = 0;
+      let bestRoom = -1;
+      for (const sign of [1, -1]) {
+        const sx = next.x - directionZ * sign * 0.7;
+        const sz = next.z + directionX * sign * 0.7;
+        if (!mapPositionFree(sx, sz, next.floor, extras)) continue;
+        const room = Math.min(...currentPedestrians.map((pedestrian) => hypot(sx, sz, pedestrian.x, pedestrian.z)), 4);
+        if (room > bestRoom) {
+          bestRoom = room;
+          bestSide = sign;
+        }
+      }
+      if (bestSide) {
+        wx = -directionZ * bestSide * next.cruise * 0.62;
+        wz = directionX * bestSide * next.cruise * 0.62;
+      }
+    }
+  }
+  const peerAhead = robots.some((other) => {
+    if (other.id === next.id || other.floor !== next.floor || other.elevator) return false;
+    const dx = other.x - next.x;
+    const dz = other.z - next.z;
+    const gap = Math.hypot(dx, dz);
+    return gap < 1.25 && dx * directionX + dz * directionZ > 0.15;
+  });
+  if (chase.commit > 0 && !hardContact && !peerAhead && !queued) {
+    wx = directionX * next.cruise * 0.86;
+    wz = directionZ * next.cruise * 0.86;
+  }
+  let peerGap = 8;
+  for (const other of robots) {
+    if (other.id === next.id || other.floor !== next.floor || other.elevator) continue;
+    peerGap = Math.min(peerGap, hypot(next.x, next.z, other.x, other.z));
+  }
+  if (peerGap < 1.35 && !queued) {
+    const pass = (1.35 - peerGap) / 1.35;
+    wx += directionZ * pass * next.cruise * 0.75;
+    wz += -directionX * pass * next.cruise * 0.75;
+  }
+  if (queued && queueSlot && hypot(next.x, next.z, queueSlot.x, queueSlot.z) < 0.32) {
+    wx = 0;
+    wz = 0;
+  }
 
   const avoidMag = Math.hypot(avoidX, avoidZ);
   const predictiveAvoiding = Math.hypot(
     safeVelocity.x - (gdx / gd) * next.cruise,
     safeVelocity.z - (gdz / gd) * next.cruise,
   ) > 0.18;
-  const avoiding = !pedestrianBlocked && pedestrianWait <= 0
+  const avoiding = !holdingForPedestrian
     && (safeVelocity.blocked || predictiveAvoiding || avoidMag > 0.28 || nearest < 1.25);
   if (safeVelocity.blocked && !pedestrianBlocked && next.replanCool <= 0) {
     next.replanCool = 1.2;
@@ -1097,14 +1848,16 @@ function tickRobot(robot, ctx) {
     wz = (wz / speedVec) * next.cruise;
     speedVec = next.cruise;
   }
-  if (nearest < 0.7 && !pedestrianBlocked) {
-    wx *= 0.15;
-    wz *= 0.15;
-    speedVec *= 0.15;
-  } else if (nearest < 1.1 && !pedestrianBlocked) {
-    wx *= 0.45;
-    wz *= 0.45;
-    speedVec *= 0.45;
+  if (chase.commit <= 0 && nearest < 0.7 && !holdingForPedestrian) {
+    const scale = pedestrianBlocked ? 0.72 : 0.15;
+    wx *= scale;
+    wz *= scale;
+    speedVec *= scale;
+  } else if (chase.commit <= 0 && nearest < 1.1 && !holdingForPedestrian) {
+    const scale = pedestrianBlocked ? 0.85 : 0.45;
+    wx *= scale;
+    wz *= scale;
+    speedVec *= scale;
   }
 
   let x = next.x + wx * dt;
@@ -1121,8 +1874,10 @@ function tickRobot(robot, ctx) {
   }
 
   const moved = hypot(x, z, next.x, next.z);
-  let stuck = moved < 0.012 ? next.stuck + dt : 0;
-  let status = pedestrianBlocked || pedestrianWait > 0
+  let stuck = holdingForPedestrian || moved >= 0.004
+    ? Math.max(0, (next.stuck || 0) - dt)
+    : (next.stuck || 0) + dt;
+  let status = holdingForPedestrian
     ? '보행자 대기'
     : safeVelocity.blocked ? '경로 재계획'
       : avoiding ? '회피 중' : next.target === 'charge' ? '충전 복귀' : '이동 중';
@@ -1156,13 +1911,18 @@ function tickRobot(robot, ctx) {
           speed: 0,
           status: '충전 중',
           occupied: false,
+          passenger: null,
+          returnPrompt: false,
+          returnHold: 0,
           nearestDist: nearest,
           avoiding: false,
           heading: next.heading,
           stuck: 0,
+          homeSeq: (next.homeSeq || 0) + 1,
         };
       }
       events.push(stampEvent('success', `${next.id} 목적지 도착 · ${arrived}`));
+      const dropoff = Boolean(next.occupied || next.passenger);
       return {
         ...next,
         x: goal.x,
@@ -1174,8 +1934,11 @@ function tickRobot(robot, ctx) {
         missionStartIndex: 0,
         plannedMissionPath: null,
         speed: 0,
-        status: next.occupied ? '승객 대기' : '대기',
+        status: dropoff ? '하차 대기' : '대기',
         occupied: false,
+        passenger: dropoff ? next.passenger : null,
+        returnPrompt: dropoff,
+        returnHold: dropoff ? 10 : 0,
         nearestDist: nearest,
         avoiding: false,
         heading: next.heading,
@@ -1188,9 +1951,9 @@ function tickRobot(robot, ctx) {
     } else {
       routeIndex += 1;
     }
-  } else if ((stuck > 1.15 || safeVelocity.blocked) && next.replanCool <= 0) {
+  } else if ((stuck > (drivingRules.replan ? 4 : 1.15) || (safeVelocity.blocked && stuck > 1.6)) && next.replanCool <= 0) {
     if (missionPathActive) {
-      const currentPoint = { x, z, floor: next.floor };
+      const currentPoint = departurePoint({ x, z, floor: next.floor }, missionPath, missionPathIndex);
       const mustReachOrigin = originPoint && missionPathIndex < missionStartIndex;
       const toMilestone = findMapPath(
         currentPoint,
@@ -1246,6 +2009,7 @@ function tickRobot(robot, ctx) {
     nearestDist: nearest,
     avoiding,
     stuck,
+    chase,
     status,
     pedestrianWait,
     route: nextRoute,
@@ -1301,30 +2065,42 @@ export function tickWorld(world, dt, flags) {
   }
 
   const eventLog = events.length ? [...events, ...(world.eventLog || [])].slice(0, 24) : world.eventLog || [];
-
-  return {
+  let nextWorld = {
     ...world,
     robots,
     pedestrians: nextPeds,
     metrics,
     eventLog,
   };
+  if (!flags.estop) {
+    for (const robot of robots) {
+      if (robot.returnPrompt && robot.returnHold <= 0) {
+        nextWorld = returnToCharge(nextWorld, robot.id, '자동').world;
+      }
+    }
+  }
+  return nextWorld;
 }
 
 export function assignMission(world, robotId, from, to) {
   const events = [];
   const idle = world.robots.find((r) => r.id === robotId)
-    || world.robots.find((r) => r.status === '대기' || r.status === '승객 대기')
+    || world.robots.find((r) => r.battery >= 10 && (r.status === '대기' || r.status === '승객 대기'))
+    || world.robots.find((r) => r.battery >= 10)
     || world.robots[0];
+  if (idle.battery < 10) {
+    events.push(stampEvent('warn', `${idle.id} 배터리 ${Math.round(idle.battery)}% · 충전 중이라 배차할 수 없습니다`));
+    return { world: withEvents(world, events), assignedId: null };
+  }
   const start = nearestNode(idle.x, idle.z, true, idle.floor).id;
   const destination = typeof to === 'string'
     ? nodeById(to)
     : nearestNode(to.x, to.z, true, to.floor || idle.floor);
   const targetPoint = typeof to === 'string'
     ? null
-    : { x: to.x, z: to.z, floor: to.floor || idle.floor, radius: to.radius || 0.62 };
+    : { id: to.id, x: to.x, z: to.z, floor: to.floor || idle.floor, radius: to.radius || 0.62 };
   const originPoint = from && typeof from === 'object'
-    ? { x: from.x, z: from.z, floor: from.floor || idle.floor, radius: from.radius || 0.5 }
+    ? { id: from.id, x: from.x, z: from.z, floor: from.floor || idle.floor, radius: from.radius || 0.5 }
     : null;
   const toOriginPath = originPoint && targetPoint
     ? findMapPath({ x: idle.x, z: idle.z, floor: idle.floor }, originPoint, world.extras)
@@ -1378,27 +2154,77 @@ export function assignMission(world, robotId, from, to) {
   };
 }
 
-export function returnToCharge(world, robotId) {
+export const CHARGE_DOCKS = {
+  'SW-01': { x: -7.45, z: -4.15, floor: '1F' },
+  'SW-02': { x: -7.45, z: -3.3, floor: '1F' },
+  'SW-03': { x: -7.45, z: -2.5, floor: '1F' },
+};
+
+export function chargeDock(robotId) {
+  return CHARGE_DOCKS[robotId] || { x: -7.45, z: -3.3, floor: '1F' };
+}
+
+export function returnToCharge(world, robotId, source = '수동') {
   const events = [];
   const robots = world.robots.map((r) => {
     if (r.id !== robotId) return r;
-    const from = nearestNode(r.x, r.z, true, r.floor).id;
-    events.push(stampEvent('info', `${r.id} 충전 스테이션 복귀 명령`));
-    return {
-      ...r,
+    const dock = { ...chargeDock(r.id), radius: 0.62 };
+    const parked = r.floor === dock.floor && hypot(r.x, r.z, dock.x, dock.z) < 0.75;
+    const phrase = source === '자동'
+      ? `${r.id} 복귀 버튼을 누르지 않아 충전존으로 자동 복귀`
+      : source === '비상'
+        ? `${r.id} 역무원 비상 원위치 · 충전존으로 이동`
+        : `${r.id} 역무원 복귀 · 충전존으로 이동`;
+    events.push(stampEvent(source === '비상' ? 'warn' : 'info', phrase));
+    const cleared = {
       occupied: false,
+      passenger: null,
+      returnPrompt: false,
+      returnHold: 0,
       target: 'charge',
-      status: '충전 복귀',
-      route: findRoute(from, 'charge', world.pedestrians, true),
+      route: ['charge'],
       routeIndex: 0,
       stuck: 0,
-      targetPoint: null,
       originPoint: null,
-      missionPath: null,
+      elevator: null,
+      replanCool: 0,
+    };
+    if (parked || r.status === '충전 중') {
+      const arriving = r.status !== '충전 중';
+      return {
+        ...r,
+        ...cleared,
+        x: dock.x,
+        z: dock.z,
+        floor: dock.floor,
+        speed: 0,
+        status: '충전 중',
+        targetPoint: null,
+        missionPath: null,
+        missionPathIndex: 0,
+        missionStartIndex: 0,
+        plannedMissionPath: null,
+        homeSeq: arriving ? (r.homeSeq || 0) + 1 : (r.homeSeq || 0),
+      };
+    }
+    const missionPath = findMapPath(
+      departurePoint(r, r.missionPath, r.missionPathIndex, r.targetPoint?.id || r.target),
+      dock,
+      world.extras,
+    );
+    if (!missionPath?.length) {
+      events.push(stampEvent('warn', `${r.id} 충전존까지 연결 경로가 없습니다`));
+      return { ...r, returnPrompt: false, returnHold: 0 };
+    }
+    return {
+      ...r,
+      ...cleared,
+      status: '충전 복귀',
+      targetPoint: dock,
+      missionPath,
       missionPathIndex: 0,
       missionStartIndex: 0,
-      plannedMissionPath: null,
-      elevator: null,
+      plannedMissionPath: missionPath,
     };
   });
   return { world: withEvents({ ...world, robots }, events) };
@@ -1413,6 +2239,6 @@ export function congestionScore(pedestrians) {
 export function statusTone(status) {
   if (status === '비상 정지') return 'stopped';
   if (status === '충전 복귀' || status === '충전 중' || status === '경로 재계획') return 'charging';
-  if (status === '대기' || status === '승객 대기') return 'idle';
+  if (status === '대기' || status === '승객 대기' || status === '하차 대기') return 'idle';
   return 'moving';
 }

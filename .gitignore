@@ -6,3 +6,4 @@ dist/
 .DS_Store
 srt_suseo_modeling/
 .station-model-build-*/
+.vercel

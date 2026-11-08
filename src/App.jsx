@@ -1,15 +1,48 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Activity, BatteryCharging, Bell, Bot, ChevronDown, CircleAlert, Clock3, Cpu, Crosshair,
-  Gauge, MapPin, Navigation, Pause, Play, Radio, Route, ShieldAlert, Signal, Siren, UserRound, Plus,
+  Activity, BatteryCharging, Bot, ChevronLeft, ChevronRight, CircleAlert, Clock3, Cpu, Crosshair,
+  Brain, Gauge, Home, LayoutDashboard, MapPin, Navigation, Pause, Play, Radio, Route, ShieldAlert, Signal, Siren, Smartphone, UserRound, Plus,
 } from 'lucide-react';
+import LearnMode from './components/LearnMode.jsx';
 import StationScene from './components/StationScene.jsx';
+import FloorPlan from './components/FloorPlan.jsx';
+import AndroidConsole from '../android/AndroidConsole.jsx';
+import { fetchOrders, sendFleet } from '../android/orderClient.js';
 import {
   addRobot, assignMission, congestionScore, createWorld, etaSeconds, findMapPath, formatEta,
-  nodeLabel, nodes, resolveMapTarget, returnToCharge, scenarioObstacles, statusTone, tickWorld,
+  nodeLabel, nodes, returnToCharge, scenarioObstacles, statusTone, tickWorld,
 } from './simulation.js';
 
 const timeNow = () => new Date().toLocaleTimeString('ko-KR', { hour12: false });
+const FLOOR_NAME = { '1F': '지하 1층', B1: '지하 2층' };
+const SPATIAL_FLOORS = ['1F', 'B1'];
+const BOARDING_SPOTS = nodes.filter((node) => !node.forbidden && !node.service);
+const EMPTY_PASSENGER = { name: '', age: '', severity: '중증', grade: '1급', staff: '' };
+const DISABILITY_GRADES = ['1급', '2급', '3급', '4급', '5급', '6급'];
+
+function spotPoint(node) {
+  return {
+    id: node.id,
+    label: node.label,
+    x: node.x,
+    z: node.z,
+    floor: node.floor,
+    radius: node.radius || 0.7,
+  };
+}
+
+function spotTitle(node) {
+  return `수서역 ${FLOOR_NAME[node.floor] || node.floor} · ${node.label.replace(/^B[12]\s/, '')}`;
+}
+
+function KorailMark() {
+  return (
+    <svg className="brandmark" viewBox="0 0 48 48" aria-hidden="true">
+      <circle cx="24" cy="24" r="23" fill="#0054A6" />
+      <text x="24" y="32" textAnchor="middle" fill="#ffffff" fontSize="26" fontWeight="800" fontFamily="Arial, sans-serif">K</text>
+    </svg>
+  );
+}
 
 function pushEvents(prev, incoming) {
   if (!incoming?.length) return prev;
@@ -22,15 +55,49 @@ export default Dashboard;
 function Dashboard() {
   const [world, setWorld] = useState(createWorld);
   const [selected, setSelected] = useState('SW-01');
+  const [focusTick, setFocusTick] = useState(0);
   const [paused, setPaused] = useState(false);
   const [estop, setEstop] = useState(false);
   const [autoReturn, setAutoReturn] = useState(true);
   const [obstacle, setObstacle] = useState(false);
   const [missionDraft, setMissionDraft] = useState(null);
+  const [routeGuide, setRouteGuide] = useState(null);
   const [clock, setClock] = useState(timeNow);
   const [layers, setLayers] = useState({ path: true, lidar: true, crowd: true, geofence: true });
+  const [view, setView] = useState('overview');
+  const [overviewMode, setOverviewMode] = useState('plan');
+  const [spatialFloor, setSpatialFloor] = useState('1F');
+  const [eventsOpen, setEventsOpen] = useState(false);
+  const [passengerForm, setPassengerForm] = useState(EMPTY_PASSENGER);
   const flagsRef = useRef({ paused, estop, autoReturn, obstacle });
+  const robotsRef = useRef(world.robots);
+  const applyOrderRef = useRef(() => {});
+  const seenOrdersRef = useRef(new Set());
+  const homeSeenRef = useRef({});
+  const plannerRobotRef = useRef(null);
   flagsRef.current = { paused, estop, autoReturn, obstacle };
+  robotsRef.current = world.robots;
+  plannerRobotRef.current = missionDraft?.robotId || routeGuide?.robotId || null;
+
+  useEffect(() => {
+    const arrived = [];
+    for (const robot of world.robots) {
+      const seq = robot.homeSeq || 0;
+      const prev = homeSeenRef.current[robot.id];
+      if (prev === undefined) {
+        homeSeenRef.current[robot.id] = seq;
+        continue;
+      }
+      if (prev !== seq) {
+        homeSeenRef.current[robot.id] = seq;
+        arrived.push(robot.id);
+      }
+    }
+    if (!arrived.includes(plannerRobotRef.current)) return;
+    setMissionDraft(null);
+    setRouteGuide(null);
+    setPassengerForm({ ...EMPTY_PASSENGER });
+  }, [world.robots]);
 
   useEffect(() => {
     let last = performance.now();
@@ -68,16 +135,41 @@ function Dashboard() {
   const missions = robots.filter((r) => ['이동 중', '충전 복귀', '회피 중', '경로 재계획', '보행자 대기', '엘리베이터 이동'].includes(r.status)).length;
   const congestion = congestionScore(world.pedestrians);
   const avgSpeed = robots.reduce((a, r) => a + (r.speed || 0), 0) / robots.length;
-  const draftRobot = missionDraft ? robots.find((r) => r.id === missionDraft.robotId) : null;
+  const planner = missionDraft || (routeGuide && {
+    robotId: routeGuide.robotId,
+    start: routeGuide.start,
+    destination: routeGuide.destination,
+    selectionFloor: routeGuide.floor,
+    guiding: true,
+  });
   const plannedPath = useMemo(() => {
-    if (!missionDraft?.start || !missionDraft?.destination) return [];
-    const path = findMapPath(missionDraft.start, missionDraft.destination, world.extras);
-    return path?.length ? [missionDraft.start, ...path] : [];
-  }, [missionDraft?.start, missionDraft?.destination, world.extras]);
+    const start = missionDraft?.start || (!missionDraft ? routeGuide?.start : null);
+    const destination = missionDraft?.destination || (!missionDraft ? routeGuide?.destination : null);
+    if (!start || !destination) return [];
+    const path = findMapPath(start, destination, world.extras);
+    return path?.length ? [start, ...path] : [];
+  }, [missionDraft, routeGuide, world.extras]);
+
+  const closePlanner = () => {
+    setMissionDraft(null);
+    setRouteGuide(null);
+  };
+
+  const showOverview = () => {
+    setView('overview');
+    setMissionDraft(null);
+    setRouteGuide(null);
+  };
+
+  const showFleet = () => {
+    setView('fleet');
+    setFocusTick((tick) => tick + 1);
+  };
 
   const startMissionSelection = (robotId = selected) => {
     const robot = robots.find((r) => r.id === robotId) || robots[0];
     setSelected(robot.id);
+    setRouteGuide(null);
     setMissionDraft({
       robotId: robot.id,
       start: null,
@@ -87,84 +179,179 @@ function Dashboard() {
     });
   };
 
-  const selectRobot = (robotId) => {
+  const trackRobot = (robotId) => {
+    setView('fleet');
     setSelected(robotId);
+    setFocusTick((tick) => tick + 1);
+    if (plannerRobotRef.current && plannerRobotRef.current !== robotId) {
+      setMissionDraft(null);
+      setRouteGuide(null);
+    }
+  };
+
+  const openRobotForm = (robotId) => {
     const robot = robots.find((item) => item.id === robotId);
+    setPassengerForm(robot?.passenger ? { ...EMPTY_PASSENGER, ...robot.passenger } : { ...EMPTY_PASSENGER });
+    setFocusTick((tick) => tick + 1);
+    startMissionSelection(robotId);
+  };
+
+  const selectDeparture = (nodeId) => {
+    const node = BOARDING_SPOTS.find((spot) => spot.id === nodeId);
+    const robotId = missionDraft?.robotId || routeGuide?.robotId || selected;
+    if (!node) {
+      setRouteGuide(null);
+      setMissionDraft((draft) => draft && ({
+        ...draft,
+        robotId,
+        start: null,
+        destination: null,
+        selecting: 'start',
+      }));
+      return;
+    }
+    setRouteGuide(null);
     setMissionDraft({
       robotId,
-      start: null,
+      start: spotPoint(node),
       destination: null,
-      selecting: 'start',
-      selectionFloor: robot?.floor || '1F',
+      selecting: 'destination',
+      selectionFloor: node.floor,
     });
   };
 
-  const selectMapPoint = (point) => {
-    if (!missionDraft || !draftRobot || !missionDraft.selecting) return;
-    const floor = missionDraft.selectionFloor || point.floor;
-    const resolved = resolveMapTarget(point.x, point.z, floor, world.extras);
-    if (!resolved) {
-      log('warn', '선택 위치 주변에 휠체어가 접근할 수 있는 공간이 없습니다');
+  const selectDestination = (nodeId) => {
+    const start = missionDraft?.start || routeGuide?.start || null;
+    const robotId = missionDraft?.robotId || routeGuide?.robotId || selected;
+    if (!start) {
+      log('warn', '출발역을 먼저 선택하세요');
       return;
     }
-    if (missionDraft.selecting === 'start') {
-      const destinationReachable = Boolean(
-        missionDraft.destination
-        && findMapPath(resolved, missionDraft.destination, world.extras)?.length,
-      );
-      setMissionDraft({
-        ...missionDraft,
-        start: resolved,
-        destination: destinationReachable ? missionDraft.destination : null,
-        selecting: destinationReachable ? null : 'destination',
-      });
-      if (missionDraft.destination && !destinationReachable) {
-        log('warn', '출발지를 변경해 기존 도착지를 초기화했습니다. 도착지를 다시 선택하세요');
+    const node = BOARDING_SPOTS.find((spot) => spot.id === nodeId);
+    if (!node) {
+      if (missionDraft) {
+        setMissionDraft((draft) => draft && ({ ...draft, destination: null, selecting: 'destination' }));
       }
       return;
     }
-    if (!missionDraft.start) {
-      log('warn', '먼저 출발지를 지정하세요');
-      setMissionDraft({ ...missionDraft, selecting: 'start' });
+    if (start.id === node.id) {
+      log('warn', '출발역과 다른 도착 스팟을 선택하세요');
       return;
     }
-    const route = findMapPath(missionDraft.start, resolved, world.extras);
+    moveBetween(robotId, start, spotPoint(node));
+  };
+
+  const moveBetween = (robotId, start, destination, passengerOverride, options = {}) => {
+    const route = findMapPath(start, destination, world.extras);
     if (!route?.length) {
-      log('warn', '출발지와 목적지 사이에 접근 가능한 경로가 없습니다');
+      log('warn', `${start.label}에서 ${destination.label}까지 갈 수 있는 길이 없습니다`);
+      return false;
+    }
+    const source = passengerOverride === undefined ? passengerForm : (passengerOverride || EMPTY_PASSENGER);
+    const passenger = {
+      name: String(source.name || '').trim(),
+      age: String(source.age || '').trim(),
+      severity: source.severity === '경증' ? '경증' : '중증',
+      grade: source.grade || '1급',
+      staff: String(source.staff || '').trim(),
+    };
+    const boarding = passenger.name || passenger.age || passenger.staff;
+    if (boarding && (!passenger.name || !passenger.age || !passenger.staff)) {
+      log('warn', '탑승 고객의 이름, 나이, 담당 역무원을 모두 입력하세요');
+      return false;
+    }
+    setWorld((w) => {
+      const { world: next, assignedId } = assignMission(w, robotId, start, destination);
+      setSelected(assignedId);
+      if (!boarding) return next;
+      return {
+        ...next,
+        robots: next.robots.map((robot) => (
+          robot.id === assignedId ? { ...robot, passenger, occupied: true } : robot
+        )),
+      };
+    });
+    if (!options.remote) {
+      setRouteGuide({
+        robotId,
+        start,
+        destination,
+        floor: start.floor,
+      });
+      setMissionDraft(null);
+    }
+    log('success', `${options.remote ? '원격 오더 · ' : ''}${robotId} 이동 · ${spotTitle(start)} → ${spotTitle(destination)}`);
+    return true;
+  };
+
+  applyOrderRef.current = (order) => {
+    const start = BOARDING_SPOTS.find((spot) => spot.id === order.startId);
+    const destination = BOARDING_SPOTS.find((spot) => spot.id === order.destinationId);
+    if (!start || !destination) return;
+    moveBetween(order.robotId, spotPoint(start), spotPoint(destination), order.passenger, { remote: true });
+  };
+
+  useEffect(() => {
+    let cursor = 0;
+    let primed = false;
+    const accept = (order) => {
+      if (seenOrdersRef.current.has(order.id)) return;
+      seenOrdersRef.current.add(order.id);
+      applyOrderRef.current(order);
+    };
+    const timer = setInterval(async () => {
+      try {
+        const data = await fetchOrders(cursor);
+        if (!primed) {
+          primed = true;
+          (data.orders || []).filter((order) => Date.now() - order.createdAt < 20000).forEach(accept);
+          cursor = data.cursor ?? cursor;
+          return;
+        }
+        cursor = data.cursor ?? cursor;
+        (data.orders || []).forEach(accept);
+      } catch {
+        // 다음 주기에 다시 조회한다.
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const publish = () => sendFleet(robotsRef.current).catch(() => {});
+    publish();
+    const timer = setInterval(publish, 2000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const selectSpot = (node) => {
+    const point = spotPoint(node);
+    const robotId = missionDraft?.robotId || routeGuide?.robotId || selected;
+    const currentStart = missionDraft?.start || routeGuide?.start || null;
+    if (!currentStart || missionDraft?.selecting === 'start') {
+      setRouteGuide(null);
+      setMissionDraft({
+        robotId,
+        start: point,
+        destination: null,
+        selecting: 'destination',
+        selectionFloor: node.floor,
+      });
       return;
     }
-    setMissionDraft({ ...missionDraft, destination: resolved, selecting: null });
+    if (currentStart.id === point.id) {
+      log('warn', '출발역과 다른 도착 스팟을 선택하세요');
+      return;
+    }
+    moveBetween(robotId, currentStart, point);
   };
 
   const selectMissionFloor = (floor) => {
-    setMissionDraft((draft) => draft && ({
-      ...draft,
-      selectionFloor: floor,
-      selecting: draft.selecting || (draft.start ? 'destination' : 'start'),
-    }));
-  };
-
-  const editMissionPoint = (field) => {
-    setMissionDraft((draft) => draft && ({
-      ...draft,
-      selecting: field,
-      selectionFloor: draft[field]?.floor || draft.selectionFloor,
-    }));
-  };
-
-  const dispatch = () => {
-    if (!missionDraft?.start || !missionDraft.destination) return;
-    setWorld((w) => {
-      const { world: next, assignedId } = assignMission(
-        w,
-        missionDraft.robotId,
-        missionDraft.start,
-        missionDraft.destination,
-      );
-      setSelected(assignedId);
-      return next;
-    });
-    setMissionDraft(null);
+    if (missionDraft) {
+      setMissionDraft((draft) => draft && ({ ...draft, selectionFloor: floor }));
+      return;
+    }
+    setRouteGuide((guide) => guide && ({ ...guide, floor }));
   };
 
   const addFleetRobot = () => {
@@ -194,7 +381,7 @@ function Dashboard() {
         ...w,
         robots: w.robots.map((r) => ({
           ...r,
-          status: r.target === 'charge' && r.battery < 95 ? '충전 복귀' : (r.missionPath?.length || r.route?.length > 1) ? '이동 중' : '대기',
+          status: r.returnPrompt ? '하차 대기' : r.target === 'charge' && r.missionPath?.length ? '충전 복귀' : r.status === '충전 중' ? '충전 중' : (r.missionPath?.length || r.route?.length > 1) ? '이동 중' : '대기',
         })),
       }));
     }
@@ -207,10 +394,8 @@ function Dashboard() {
     log('info', '신규 승객 호출 · 키오스크 K-02 가상 요청');
   };
 
-  const onReturnCharge = () => {
-    setWorld((w) => {
-      return returnToCharge(w, selected).world;
-    });
+  const onReturnCharge = (robotId = selected, source = '수동') => {
+    setWorld((w) => returnToCharge(w, robotId, source).world);
   };
 
   const resetSim = () => {
@@ -220,30 +405,60 @@ function Dashboard() {
     setObstacle(false);
     setSelected('SW-01');
     setMissionDraft(null);
+    setRouteGuide(null);
     log('info', '가상 역사 시뮬레이션 초기화');
   };
 
   const toggleLayer = (key) => setLayers((l) => ({ ...l, [key]: !l[key] }));
   const slam = estop ? 0 : Math.max(86, 99.4 - (active.avoiding ? 4.2 : 0) - (active.nearestDist < 1 ? 3 : 0));
   const lidarLabel = active.nearestDist < 8 ? `${active.nearestDist.toFixed(1)}m` : '—';
-  const missionStartLabel = !missionDraft?.start
-    ? '맵에서 출발지를 선택하세요'
-    : `${missionDraft.start.floor} (${missionDraft.start.x.toFixed(1)}, ${missionDraft.start.z.toFixed(1)})`;
-  const missionDestinationLabel = !missionDraft?.destination
-    ? '맵에서 도착지를 선택하세요'
-    : `${missionDraft.destination.floor} (${missionDraft.destination.x.toFixed(1)}, ${missionDraft.destination.z.toFixed(1)})`;
+  const missionStartLabel = planner?.start ? spotTitle(planner.start) : '출발역을 선택하세요';
+  const missionDestinationLabel = planner?.destination ? spotTitle(planner.destination) : '도착 스팟을 누르세요';
+  const plannerFloor = planner?.selectionFloor || '1F';
 
   return (
-    <main className="app">
+    <main className={`app view-${view}`}>
+      <nav className="sidenav" aria-label="주 메뉴">
+        <button className={view === 'overview' ? 'active' : ''} onClick={showOverview}>
+          <LayoutDashboard size={20} />
+          <span>전체 관제</span>
+        </button>
+        <button className={view === 'fleet' ? 'active' : ''} onClick={showFleet}>
+          <Bot size={20} />
+          <span>로봇 운행</span>
+        </button>
+        <button className={view === 'android' ? 'active' : ''} onClick={() => setView('android')}>
+          <Smartphone size={20} />
+          <span>안드로이드</span>
+        </button>
+        <button className={view === 'learn' ? 'active' : ''} onClick={() => setView('learn')}>
+          <Brain size={20} />
+          <span>강화학습</span>
+        </button>
+        <button
+          className={`nav-alarm ${eventsOpen ? 'open' : ''}`}
+          onClick={() => setEventsOpen((open) => !open)}
+          aria-expanded={eventsOpen}
+          aria-label="실시간 알람"
+        >
+          <span className="alarm-mark">!</span>
+          <span>알람</span>
+          {events.length > 0 && <b>{Math.min(events.length, 9)}</b>}
+        </button>
+      </nav>
+      {view === 'android' && <AndroidConsole />}
+      {view === 'learn' && <LearnMode />}
       <div className="scene">
         <StationScene
           robots={robots}
           pedestrians={world.pedestrians}
           extras={world.extras}
           selected={selected}
-          onSelect={selectRobot}
-          onMapPoint={selectMapPoint}
-          missionDraft={missionDraft}
+          onSelect={trackRobot}
+          focusTick={focusTick}
+          cameraMode={view === 'fleet' ? 'follow' : overviewMode}
+          spatialFloor={spatialFloor}
+          missionDraft={view === 'fleet' ? missionDraft : null}
           selectionFloor={missionDraft?.selectionFloor}
           plannedPath={plannedPath}
           layers={layers}
@@ -252,10 +467,10 @@ function Dashboard() {
 
       <header className="topbar glass">
         <div className="brand">
-          <div className="brandmark"><Navigation size={23} /></div>
+          <KorailMark />
           <div>
-            <div className="brandname">SUSEO <span>MOBILITY TWIN</span></div>
-            <div className="subbrand">VIRTUAL STATION SIM · WHEELCHAIR FLEET</div>
+            <div className="korail-word">KORAIL</div>
+            <div className="brandname">수서역 <span>휠체어 관제</span></div>
           </div>
         </div>
         <div className="live">
@@ -263,7 +478,7 @@ function Dashboard() {
         </div>
         <div className="topright">
           <span className="connection"><Signal size={17} /> 시뮬 링크 · 실하드웨어 없음</span>
-          <button className="iconbtn" onClick={() => log('info', '시뮬 이벤트 큐 확인')}><Bell size={19} /><i /></button>
+          <span className="view-caption">{view === 'overview' ? '전체 3D 관제' : view === 'learn' ? '강화학습 모드' : view === 'android' ? '안드로이드 오더' : '로봇 운행 제어'}</span>
           <div className="operator">
             <div className="avatar">관</div>
             <div><b>통합 관제센터</b><small>DEMO OPERATOR</small></div>
@@ -271,7 +486,7 @@ function Dashboard() {
         </div>
       </header>
 
-      <section className="kpis">
+      {view === 'overview' && <section className="kpis">
         <div className="kpi glass">
           <div className="kpi-icon teal"><Bot size={20} /></div>
           <div>
@@ -304,18 +519,49 @@ function Dashboard() {
             <span className={congestion > 70 ? 'warntext' : 'positive'}>복도 혼잡 {congestion}%</span>
           </div>
         </div>
-      </section>
+      </section>}
 
-      <div className="maplabel">
+      {view === 'overview' && <div className="maplabel">
         <span className="mapdot" />
         <div>
-          <b>VIRTUAL SUSEO STATION</b>
-          <small>OBJ-INSPIRED MAP · 1F / B1 / B2 LIVE SIMULATION</small>
+          <b>KORAIL 수서역</b>
+          <small>{overviewMode === 'plan' ? '지하 1층 · 지하 2층 평면도' : `${FLOOR_NAME[spatialFloor]} 수직 3D`}</small>
         </div>
         <span className="maptag">DIGITAL TWIN SIM</span>
-      </div>
+      </div>}
 
-      <aside className="leftpanel glass">
+      {view === 'overview' && (
+        <div className="view-switch" role="group" aria-label="관제 시점">
+          <button className={overviewMode === 'plan' ? 'active' : ''} aria-pressed={overviewMode === 'plan'} onClick={() => setOverviewMode('plan')}>평면도</button>
+          <button className={overviewMode === 'spatial' ? 'active' : ''} aria-pressed={overviewMode === 'spatial'} onClick={() => setOverviewMode('spatial')}>수직 3D</button>
+        </div>
+      )}
+
+      {view === 'overview' && overviewMode === 'spatial' && (
+        <div className="floor-slider">
+          <button
+            type="button"
+            className="floor-nudge prev"
+            aria-label="이전 층"
+            disabled={spatialFloor === '1F'}
+            onClick={() => setSpatialFloor(SPATIAL_FLOORS[SPATIAL_FLOORS.indexOf(spatialFloor) - 1])}
+          >
+            <ChevronLeft size={28} />
+          </button>
+          <div className="floor-slide-name">{FLOOR_NAME[spatialFloor]}</div>
+          <button
+            type="button"
+            className="floor-nudge next"
+            aria-label="다음 층"
+            disabled={spatialFloor === 'B1'}
+            onClick={() => setSpatialFloor(SPATIAL_FLOORS[SPATIAL_FLOORS.indexOf(spatialFloor) + 1])}
+          >
+            <ChevronRight size={28} />
+          </button>
+        </div>
+      )}
+
+      {view === 'fleet' && <aside className="leftpanel glass">
         <div className="panelhead">
           <div>
             <span className="eyebrow">FLEET MANAGEMENT</span>
@@ -325,18 +571,22 @@ function Dashboard() {
         </div>
         <div className="robotlist">
           {robots.map((r) => (
-            <button key={r.id} className={`robotrow ${selected === r.id ? 'selected' : ''}`} onClick={() => selectRobot(r.id)}>
-              <div className="robot-icon" style={{ '--robot': r.color }}><Bot size={21} /><span /></div>
-              <div className="robot-info">
-                <b>{r.id}<span className={`status ${statusTone(r.status)}`}>{r.status}</span></b>
-                <small>{r.targetPoint ? `${r.targetPoint.floor} 맵 지정 지점` : nodeLabel(r.target)}</small>
-                <div className="batteryline">
-                  <div className="battery"><i style={{ width: `${r.battery}%`, background: r.battery < 25 ? '#ffbd69' : r.color }} /></div>
-                  <small>{Math.round(r.battery)}%</small>
+            <div key={r.id} className={`robotrow ${selected === r.id ? 'selected' : ''}`}>
+              <button type="button" className="robot-track" onClick={() => trackRobot(r.id)} aria-label={`${r.id} 휠체어 추적`}>
+                <div className="robot-icon" style={{ '--robot': r.color }}><Bot size={21} /><span /></div>
+                <div className="robot-info">
+                  <b>{r.id}<span className={`status ${statusTone(r.status)}`}>{r.status}</span></b>
+                  <small>{r.targetPoint ? `${r.targetPoint.floor} 맵 지정 지점` : nodeLabel(r.target)}</small>
+                  <div className="batteryline">
+                    <div className="battery"><i style={{ width: `${r.battery}%`, background: r.battery < 25 ? '#ffbd69' : r.color }} /></div>
+                    <small>{Math.round(r.battery)}%</small>
+                  </div>
                 </div>
-              </div>
-              <ChevronDown size={15} className="rowchevron" />
-            </button>
+              </button>
+              <button type="button" className="robot-edit" onClick={() => openRobotForm(r.id)} aria-label={`${r.id} 출발지와 도착지 입력`}>
+                <ChevronRight size={18} />
+              </button>
+            </div>
           ))}
         </div>
         <button className="actionrow add-robot" onClick={addFleetRobot}>
@@ -350,7 +600,7 @@ function Dashboard() {
           <span className="actionicon orange"><CircleAlert size={18} /></span>
           <span>
             <b>{obstacle ? '혼잡·장애물 해제' : '혼잡·장애물 주입'}</b>
-            <small>수하물 3개를 1F · B1 · B2에 분산 배치</small>
+            <small>수하물 3개를 지하 1층 · 지하 2층에 분산 배치</small>
           </span>
           <span className={`toggle ${obstacle ? 'on' : ''}`} />
         </button>
@@ -362,6 +612,13 @@ function Dashboard() {
           </span>
           <span className={`toggle ${estop ? 'on redtoggle' : ''}`} />
         </button>
+        <button className="actionrow" onClick={() => onReturnCharge(selected, '비상')}>
+          <span className="actionicon orange"><Home size={18} /></span>
+          <span>
+            <b>비상 원위치</b>
+            <small>{selected} 역무원이 충전존으로 되돌립니다</small>
+          </span>
+        </button>
         <button className="actionrow" onClick={passengerCall}>
           <span className="actionicon cyan"><UserRound size={18} /></span>
           <span><b>신규 승객 호출</b><small>가상 키오스크 요청 생성</small></span>
@@ -372,9 +629,9 @@ function Dashboard() {
           <span><b>자동 충전 복귀</b><small>공차 · 배터리 20% 미만</small></span>
           <button className={`toggle ${autoReturn ? 'on' : ''}`} onClick={() => setAutoReturn((v) => !v)} />
         </div>
-      </aside>
+      </aside>}
 
-      <aside className="rightpanel glass">
+      {view === 'fleet' && <aside className="rightpanel glass">
         <div className="panelhead">
           <div>
             <span className="eyebrow">LIVE TELEMETRY</span>
@@ -456,15 +713,16 @@ function Dashboard() {
           <button className="secondarybtn" onClick={onReturnCharge}><BatteryCharging size={15} /> 충전 복귀</button>
           <button className="primarybtn" onClick={() => startMissionSelection(active.id)}><Navigation size={15} /> 미션 할당</button>
         </div>
-      </aside>
+      </aside>}
 
-      <div className="bottomleft glass">
+      <aside className={`event-drawer glass ${eventsOpen ? 'open' : ''}`} aria-hidden={!eventsOpen}>
         <div className="bottomtitle">
-          <span><Activity size={15} /> LIVE EVENT STREAM</span>
-          <span className="eventcount">{events.length} EVENTS</span>
+          <span><Activity size={15} /> 실시간 알람</span>
+          <button className="drawer-close" onClick={() => setEventsOpen(false)}>닫기</button>
         </div>
         <div className="eventlist">
-          {events.slice(0, 4).map((e) => (
+          {events.length === 0 && <p className="event-empty">새 알람이 없습니다.</p>}
+          {events.map((e) => (
             <div className="event" key={e.id}>
               <span className={`eventdot ${e.type}`} />
               <small>{e.time}</small>
@@ -472,7 +730,7 @@ function Dashboard() {
             </div>
           ))}
         </div>
-      </div>
+      </aside>
 
       <div className="bottomright glass">
         <div className="minihead"><span>MAP LAYERS</span><span className="layerlive">● SIM</span></div>
@@ -490,77 +748,150 @@ function Dashboard() {
       </div>
 
       <footer className="footer">
-        <span>© SUSEO MOBILITY DIGITAL TWIN</span>
+        <span>KORAIL · 수서역 모빌리티</span>
         <span><i /> SIMULATION MODE · HARDWARE NOT CONNECTED</span>
         <div className="playcontrols">
           <button onClick={() => setPaused((v) => !v)}>{paused ? <Play size={14} /> : <Pause size={14} />} {paused ? '재개' : '일시정지'}</button>
+          <button className="home-recall" onClick={() => onReturnCharge(selected, '비상')}><Home size={14} /> 비상 원위치</button>
           <button onClick={resetSim}>초기화</button>
         </div>
       </footer>
 
-      {missionDraft && (
-        <section className="missionbar glass">
-          <div className="missionbar-head">
-            <span className="eyebrow">MAP MISSION PLANNER</span>
-            <button className="mission-cancel" onClick={() => setMissionDraft(null)} aria-label="미션 선택 취소">×</button>
-          </div>
-          <b>{draftRobot?.id || '휠체어 선택'} <span>·</span> {missionStartLabel}</b>
-          <small className="mission-step">{missionDestinationLabel}</small>
-          <div className="mission-map-edit">
-            <div className="mission-map-floors" aria-label="지점 선택 층">
-              {['1F', 'B1', 'B2'].map((floor) => (
-                <button
-                  key={floor}
-                  className={missionDraft.selectionFloor === floor ? 'active' : ''}
-                  onClick={() => selectMissionFloor(floor)}
-                  aria-pressed={missionDraft.selectionFloor === floor}
-                >
-                  {floor}
-                </button>
-              ))}
+      {view === 'fleet' && planner && (
+        <>
+          <button className="planner-scrim" aria-label="경로 안내 닫기" onClick={closePlanner} />
+          <section className="missionbar glass route-planner">
+            <div className="missionbar-head">
+              <div className="planner-brand">
+                <KorailMark />
+                <div>
+                  <b>2D 경로 안내</b>
+                  <small>{planner.robotId} · 도착 스팟을 누르면 그 길로 이동합니다</small>
+                </div>
+              </div>
+              <button className="mission-cancel" onClick={closePlanner} aria-label="경로 안내 닫기">×</button>
             </div>
-            <div className="mission-point-edit">
-              <button
-                className={missionDraft.selecting === 'start' ? 'active' : ''}
-                onClick={() => editMissionPoint('start')}
+            <label className="station-field">
+              출발역
+              <select
+                className="station-select"
+                value={planner.start?.id || ''}
+                onChange={(event) => selectDeparture(event.target.value)}
               >
-                출발지 다시 선택
-              </button>
-              <button
-                className={missionDraft.selecting === 'destination' ? 'active' : ''}
-                onClick={() => editMissionPoint('destination')}
-                disabled={!missionDraft.start}
+                <option value="">출발역을 선택하세요</option>
+                {SPATIAL_FLOORS.map((floor) => (
+                  <optgroup key={floor} label={`수서역 ${FLOOR_NAME[floor]}`}>
+                    {BOARDING_SPOTS.filter((spot) => spot.floor === floor).map((spot) => (
+                      <option key={spot.id} value={spot.id}>{spotTitle(spot)}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <label className="station-field">
+              도착역
+              <select
+                className="station-select"
+                value={planner.destination?.id || ''}
+                onChange={(event) => selectDestination(event.target.value)}
               >
-                도착지 다시 선택
-              </button>
+                <option value="">도착역을 선택하세요</option>
+                {SPATIAL_FLOORS.map((floor) => (
+                  <optgroup key={floor} label={`수서역 ${FLOOR_NAME[floor]}`}>
+                    {BOARDING_SPOTS.filter((spot) => spot.floor === floor && spot.id !== planner.start?.id).map((spot) => (
+                      <option key={spot.id} value={spot.id}>{spotTitle(spot)}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <div className="planner-summary">
+              <span>출발<b>{missionStartLabel}</b></span>
+              <span>도착<b>{missionDestinationLabel}</b></span>
             </div>
-          </div>
-          <small className="mission-selection-hint">
-            {missionDraft.selecting
-              ? `${missionDraft.selectionFloor} 층에서 ${missionDraft.selecting === 'start' ? '출발지' : '도착지'}를 지도에서 선택하세요.`
-              : '맵 이동 중 오클릭을 방지하려면 위의 다시 선택 버튼을 누르세요.'}
-          </small>
-          {missionDraft.start && missionDraft.destination ? (
-            <>
-              <small>좌표 기반 경로 · {plannedPath.length}개 경로점 · 장애물 회피 및 엘리베이터 연결 반영</small>
-              <small>휠체어는 현재 위치에서 지정한 출발 좌표를 거쳐 도착 좌표로 이동합니다.</small>
-            </>
-          ) : (
-            <small>층을 먼저 선택한 뒤 지도에서 출발 좌표와 도착 좌표를 지정하세요.</small>
-          )}
-          {missionDraft.start && missionDraft.destination && (
-            <div className="missionbar-routes">
-              <span><i className="route-swatch planned" /> 최적 경로</span>
-              <span><i className="route-swatch realtime" /> 실시간 수정 경로</span>
+            <fieldset className="passenger-form">
+              <legend>탑승 고객</legend>
+              <label>이름
+                <input value={passengerForm.name} onChange={(event) => setPassengerForm((form) => ({ ...form, name: event.target.value }))} placeholder="홍길동" />
+              </label>
+              <label>나이
+                <input value={passengerForm.age} inputMode="numeric" onChange={(event) => setPassengerForm((form) => ({ ...form, age: event.target.value.replace(/[^\d]/g, '').slice(0, 3) }))} placeholder="65" />
+              </label>
+              <label>장애 정도
+                <select value={passengerForm.severity} onChange={(event) => setPassengerForm((form) => ({ ...form, severity: event.target.value }))}>
+                  <option value="중증">중증</option>
+                  <option value="경증">경증</option>
+                </select>
+              </label>
+              <label>등급
+                <select value={passengerForm.grade} onChange={(event) => setPassengerForm((form) => ({ ...form, grade: event.target.value }))}>
+                  {DISABILITY_GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
+                </select>
+              </label>
+              <label className="passenger-staff">담당 역무원
+                <input value={passengerForm.staff} onChange={(event) => setPassengerForm((form) => ({ ...form, staff: event.target.value }))} placeholder="김역무" />
+              </label>
+            </fieldset>
+            <div className="mission-map-edit">
+              <div className="mission-map-floors" aria-label="평면도 층">
+                {SPATIAL_FLOORS.map((floor) => (
+                  <button
+                    key={floor}
+                    className={plannerFloor === floor ? 'active' : ''}
+                    onClick={() => selectMissionFloor(floor)}
+                    aria-pressed={plannerFloor === floor}
+                  >
+                    {FLOOR_NAME[floor]}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-          <div className="missionbar-actions">
-            <button className="secondarybtn" onClick={() => setMissionDraft(null)}>취소</button>
-            <button className="primarybtn" disabled={!missionDraft.start || !missionDraft.destination} onClick={dispatch}>
-              <Navigation size={14} /> 배차 확정
-            </button>
-          </div>
-        </section>
+            <FloorPlan
+              floor={plannerFloor}
+              spots={BOARDING_SPOTS}
+              start={planner.start}
+              destination={planner.destination}
+              path={plannedPath}
+              robots={robots}
+              extras={world.extras}
+              onSpot={selectSpot}
+            />
+            <div className="planner-legend">
+              <span><i className="ahead" /> 지나갈 길</span>
+              <span><i className="done" /> 지나온 길</span>
+              <span>출 출발역</span>
+              <span>도 도착 스팟</span>
+            </div>
+            <small className="mission-selection-hint">
+              {planner.guiding
+                  ? `${missionStartLabel}에서 ${missionDestinationLabel}으로 이동 중입니다. 다른 도착역을 고르거나 아래 스팟을 누르면 경로가 바뀝니다.`
+                  : planner.start
+                    ? `${FLOOR_NAME[planner.start.floor]}에서 출발합니다. 도착역 드롭다운이나 아래 스팟으로 목적지를 고르세요.`
+                    : '출발역과 도착역은 드롭다운에서 고르거나, 아래 평면도 스팟을 눌러 지정할 수 있습니다.'}
+            </small>
+            {planner.start && planner.destination && planner.start.floor !== planner.destination.floor && (
+              <small>다른 층은 엘리베이터로 이어집니다. 층 버튼으로 각 층의 경로를 볼 수 있습니다.</small>
+            )}
+            <div className="missionbar-actions">
+              <button className="secondarybtn" onClick={closePlanner}>닫기</button>
+            </div>
+          </section>
+        </>
+      )}
+
+      {view !== 'android' && robots.some((robot) => robot.returnPrompt) && (
+        <div className="recall-center">
+          {robots.filter((robot) => robot.returnPrompt).map((robot) => (
+            <section className="recall-card glass" key={robot.id}>
+              <span>역무원 확인</span>
+              <b>{robot.id} 하차 완료</b>
+              <small>{robot.passenger?.name ? `${robot.passenger.name} 손님 · ` : ''}{nodeLabel(robot.target)} 도착</small>
+              <strong>{Math.max(0, Math.ceil(robot.returnHold))}</strong>
+              <em>초 후 충전존 자동 복귀</em>
+              <button type="button" onClick={() => onReturnCharge(robot.id, '수동')}>충전존으로 복귀</button>
+            </section>
+          ))}
+        </div>
       )}
 
       {estop && (
