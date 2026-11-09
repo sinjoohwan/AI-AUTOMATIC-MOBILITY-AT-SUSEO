@@ -14,7 +14,7 @@ const FALLBACK_ROBOTS = [
 ];
 
 function emptyPassenger() {
-  return { name: '', age: '', severity: '중증', grade: '1급', staff: '' };
+  return { name: '홍길동', age: '65', severity: '경증', grade: '1급', staff: '' };
 }
 
 function emptyDraft() {
@@ -112,7 +112,12 @@ export default function AndroidConsole() {
         robotId,
         startId,
         destinationId,
-        passenger,
+        passenger: {
+          ...passenger,
+          name: String(passenger.name || '').trim() || '홍길동',
+          age: String(passenger.age || '').trim() || '65',
+          severity: passenger.severity === '중증' ? '중증' : '경증',
+        },
       });
       const start = SPOTS.find((spot) => spot.id === startId);
       const destination = SPOTS.find((spot) => spot.id === destinationId);
@@ -264,9 +269,9 @@ export default function AndroidConsole() {
           <input inputMode="numeric" value={passenger.age} placeholder="65" onChange={(event) => updateDraft(robotId, (prev) => ({ ...prev, passenger: { ...prev.passenger, age: event.target.value.replace(/[^\d]/g, '').slice(0, 3) } }))} />
         </label>
         <label>장애 정도
-          <select value={passenger.severity} onChange={(event) => updateDraft(robotId, (prev) => ({ ...prev, passenger: { ...prev.passenger, severity: event.target.value } }))}>
-            <option value="중증">중증</option>
+          <select value={passenger.severity || '경증'} onChange={(event) => updateDraft(robotId, (prev) => ({ ...prev, passenger: { ...prev.passenger, severity: event.target.value } }))}>
             <option value="경증">경증</option>
+            <option value="중증">중증</option>
           </select>
         </label>
         <label>등급
@@ -278,12 +283,12 @@ export default function AndroidConsole() {
           <input value={passenger.staff} placeholder="김역무" onChange={(event) => updateDraft(robotId, (prev) => ({ ...prev, passenger: { ...prev.passenger, staff: event.target.value } }))} />
         </label>
         </div>
-        <p className="android-hint">이름, 나이, 장애 정보와 담당 역무원을 입력합니다. 고객 없이 보내려면 이름, 나이, 역무원을 비워 두세요.</p>
+        <p className="android-hint">이름과 나이를 비워 두면 홍길동, 65세로 신청됩니다. 담당 역무원은 입력해 주세요.</p>
       </section>
       </div>
 
       <button className="android-submit" disabled={sending || !robotId || !startId || !destinationId || batteryDrained(robots.find((robot) => robot.id === robotId) || {})} onClick={submit}>
-        {sending ? '전송 중' : '관제 화면으로 오더 전송'}
+        {sending ? '신청 중' : '이용신청'}
       </button>
     </section>
   );

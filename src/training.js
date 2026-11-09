@@ -10,7 +10,7 @@ const SPOTS = nodes.filter((node) => !node.forbidden && !node.service);
 
 export const SCENARIOS = [
   { robotId: 'SW-01', startId: 'hall', destinationId: 'p1a', label: '지하1층 대합실 → 1A 승강장' },
-  { robotId: 'SW-02', startId: 'b2_info', destinationId: 'p4a', label: '지하2층 안내창구 → 4A 승강장' },
+  { robotId: 'SW-02', startId: 'b2_info', destinationId: 'p4a', label: '안내창구B2 → 4A 승강장' },
   { robotId: 'SW-03', startId: 'p6b', destinationId: 'charge', label: '6B 승강장 → 충전 부스' },
   { robotId: 'SW-01', startId: 'taxi', destinationId: 'b2_subway', label: '택시승강장 → 지하철 하차' },
   { robotId: 'SW-02', startId: 'hall', destinationId: 'p6b', label: '대합실 → 6B 승강장' },

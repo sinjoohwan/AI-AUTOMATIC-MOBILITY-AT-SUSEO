@@ -22,6 +22,28 @@ function focusPoint(robot) {
   return new THREE.Vector3(robot.x + shiftOf(robot.floor), 0.35, robot.z);
 }
 
+function rideDip(robot) {
+  if (!robot.elevator) return 0;
+  const elapsed = robot.elevator.elapsed || 0;
+  const duration = robot.elevator.duration || 1;
+  const edge = 0.45;
+  return Math.min(1, elapsed / edge, Math.max(0, duration - elapsed) / edge);
+}
+
+function rideFade(robot) {
+  return 1 - rideDip(robot) * 0.82;
+}
+
+function rideScale(robot) {
+  return 1 - rideDip(robot) * 0.58;
+}
+
+function washedColor(color, fade) {
+  if (fade > 0.95) return color;
+  const washed = new THREE.Color(color).lerp(new THREE.Color('#d5e2ee'), 1 - fade);
+  return `#${washed.getHexString()}`;
+}
+
 const architecture = [
   {
     file: '/models/station-1f.glb',
@@ -240,12 +262,54 @@ function ElevatorCars({ floor }) {
   ));
 }
 
+const chargeHatch = (() => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#d5f3ea';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.strokeStyle = '#1f8a72';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  for (let offset = -64; offset <= 128; offset += 12) {
+    ctx.moveTo(offset, 64);
+    ctx.lineTo(offset + 64, 0);
+  }
+  ctx.stroke();
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(5, 7);
+  return texture;
+})();
+
 function AmenityMeshes({ floor }) {
   const shift = shiftOf(floor);
   return amenities.filter((item) => item.floor === floor).map((item) => {
     const style = AMENITY_STYLE[item.kind];
     const label = item.label ?? style.label;
     const fontSize = Math.min(0.68, Math.max(0.46, (Math.max(item.w, 1.4) * 0.9) / Math.max([...label].length, 2)));
+    if (item.kind === 'charger') {
+      return (
+        <group key={item.id} position={[item.x + shift, 0.04, item.z]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.008, 0]}>
+            <planeGeometry args={[item.w + 0.16, item.d + 0.16]} />
+            <meshBasicMaterial color="#146b56" />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[item.w, item.d]} />
+            <meshBasicMaterial map={chargeHatch} transparent />
+          </mesh>
+          {label ? (
+            <Text position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={fontSize} color="#083528" anchorX="center" anchorY="middle" outlineWidth={0.03} outlineColor="#e7fff8">
+              {label}
+            </Text>
+          ) : null}
+        </group>
+      );
+    }
     const height = item.kind === 'seat' ? 0.28 : item.kind === 'ticket' || item.kind === 'counter' || item.kind === 'police' ? 0.9 : item.kind === 'kiosk' ? 1.05 : 0.7;
     return (
       <group key={item.id} position={[item.x + shift, height / 2, item.z]}>
@@ -272,7 +336,7 @@ function spatialFrame(floor) {
   const depth = bounds.maxZ - bounds.minZ;
   const span = Math.max(width, depth * 1.15);
   let back = Math.max(18, span * 1.02);
-  let height = Math.max(12, span * 0.56);
+  let height = Math.max(14, span * 0.72);
   if (width > 28) {
     back *= 1.28;
     height *= 1.22;
@@ -415,20 +479,24 @@ function LidarSweep({ robot }) {
 function Robot({ robot, selected, onSelect, showLidar }) {
   const focus = focusPoint(robot);
   const riding = Boolean(robot.elevator);
-  const fade = riding ? 0.38 : 1;
+  const fade = rideFade(robot);
+  const scale = rideScale(robot);
   const body = (color, extra = {}) => (
     <meshStandardMaterial
-      color={color}
-      transparent={riding}
+      color={washedColor(color, fade)}
+      transparent={fade < 0.98}
       opacity={fade}
-      depthWrite={!riding}
+      depthWrite={fade > 0.98}
+      emissiveIntensity={0}
       {...extra}
     />
   );
   return (
     <group
+      key={riding ? 'riding' : 'floor'}
       position={[focus.x, 0.02, focus.z]}
       rotation={[0, robot.heading || 0, 0]}
+      scale={scale}
       onClick={(e) => {
         if (!onSelect) return;
         e.stopPropagation();
@@ -437,7 +505,7 @@ function Robot({ robot, selected, onSelect, showLidar }) {
     >
       <mesh position={[0, 0.12, 0]} castShadow>
         <cylinderGeometry args={[0.34, 0.38, 0.18, 24]} />
-        {body(robot.color, { emissive: robot.color, emissiveIntensity: riding ? 0.15 : selected ? 1.3 : robot.avoiding ? 0.9 : 0.45 })}
+        {body(robot.color, { emissive: robot.color, emissiveIntensity: fade < 0.98 ? 0.05 : selected ? 1.3 : robot.avoiding ? 0.9 : 0.45 })}
       </mesh>
       <mesh position={[0, 0.39, 0]} castShadow>
         <boxGeometry args={[0.48, 0.42, 0.42]} />
@@ -457,7 +525,7 @@ function Robot({ robot, selected, onSelect, showLidar }) {
       )}
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[ROBOT_RADIUS - 0.04, ROBOT_RADIUS, 40]} />
-        <meshBasicMaterial color={robot.avoiding ? '#ffc46d' : '#ffffff'} transparent opacity={riding ? 0.28 : 0.95} />
+        <meshBasicMaterial color={robot.avoiding ? '#ffc46d' : '#ffffff'} transparent opacity={fade < 0.98 ? fade * 0.35 : 0.95} />
       </mesh>
       {showLidar && !riding && <LidarSweep robot={robot} />}
       <Text position={[0, 1.02, 0]} fontSize={0.22} color={robot.color} anchorX="center" outlineWidth={0.025} outlineColor="#07111e" fillOpacity={fade}>
@@ -666,8 +734,8 @@ function Scene({
       <OrbitControls
         makeDefault
         target={cameraMode === 'follow' ? [-36, 0.35, 0.2] : [-8, 0, 0]}
-        minDistance={cameraMode === 'follow' ? 4 : 16}
-        maxDistance={cameraMode === 'plan' ? 180 : cameraMode === 'spatial' ? 120 : 26}
+        minDistance={cameraMode === 'follow' ? 2.2 : 16}
+        maxDistance={cameraMode === 'plan' ? 180 : cameraMode === 'spatial' ? 120 : 42}
         maxPolarAngle={cameraMode === 'plan' ? 0.45 : cameraMode === 'spatial' ? 1.28 : 1.15}
         minPolarAngle={cameraMode === 'plan' ? 0.18 : cameraMode === 'spatial' ? 0.42 : 0.28}
         enableRotate={cameraMode !== 'plan'}

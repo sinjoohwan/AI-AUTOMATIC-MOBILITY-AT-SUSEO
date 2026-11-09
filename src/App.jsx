@@ -35,6 +35,14 @@ function spotTitle(node) {
   return `수서역 ${FLOOR_NAME[node.floor] || node.floor} · ${node.label.replace(/^B[12]\s/, '')}`;
 }
 
+function placeLabel(point) {
+  if (!point) return '지정 없음';
+  const node = nodes.find((item) => item.id === point.id);
+  if (node?.label) return spotTitle({ ...node, floor: point.floor || node.floor });
+  if (point.label && point.floor) return spotTitle(point);
+  return nodeLabel(point.id || point) || '지정 없음';
+}
+
 function KorailMark() {
   return (
     <svg className="brandmark" viewBox="0 0 48 48" aria-hidden="true">
@@ -68,6 +76,10 @@ function Dashboard() {
   const [overviewMode, setOverviewMode] = useState('plan');
   const [spatialFloor, setSpatialFloor] = useState('1F');
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [infoRobotId, setInfoRobotId] = useState(null);
+  const [infoMapFloor, setInfoMapFloor] = useState('B1');
+  const [fleetOpen, setFleetOpen] = useState(true);
+  const [telemetryOpen, setTelemetryOpen] = useState(true);
   const [passengerForm, setPassengerForm] = useState(EMPTY_PASSENGER);
   const flagsRef = useRef({ paused, estop, autoReturn, obstacle });
   const robotsRef = useRef(world.robots);
@@ -124,6 +136,7 @@ function Dashboard() {
 
   const robots = world.robots;
   const active = robots.find((r) => r.id === selected) || robots[0];
+  const infoRobot = robots.find((robot) => robot.id === infoRobotId) || null;
   const events = world.eventLog || [];
   const log = (type, text) =>
     setWorld((w) => ({
@@ -159,11 +172,29 @@ function Dashboard() {
     setView('overview');
     setMissionDraft(null);
     setRouteGuide(null);
+    setInfoRobotId(null);
   };
 
   const showFleet = () => {
     setView('fleet');
     setFocusTick((tick) => tick + 1);
+  };
+
+  const focusRobot = (robotId) => {
+    setSelected(robotId);
+    setInfoRobotId(null);
+    setFocusTick((tick) => tick + 1);
+  };
+
+  const showRobotInfo = (robotId) => {
+    const robot = robotsRef.current.find((item) => item.id === robotId);
+    setView('fleet');
+    setSelected(robotId);
+    setInfoRobotId(robotId);
+    setInfoMapFloor(robot?.floor || robot?.targetPoint?.floor || '1F');
+    setFocusTick((tick) => tick + 1);
+    setMissionDraft(null);
+    setRouteGuide(null);
   };
 
   const startMissionSelection = (robotId = selected) => {
@@ -180,20 +211,7 @@ function Dashboard() {
   };
 
   const trackRobot = (robotId) => {
-    setView('fleet');
-    setSelected(robotId);
-    setFocusTick((tick) => tick + 1);
-    if (plannerRobotRef.current && plannerRobotRef.current !== robotId) {
-      setMissionDraft(null);
-      setRouteGuide(null);
-    }
-  };
-
-  const openRobotForm = (robotId) => {
-    const robot = robots.find((item) => item.id === robotId);
-    setPassengerForm(robot?.passenger ? { ...EMPTY_PASSENGER, ...robot.passenger } : { ...EMPTY_PASSENGER });
-    setFocusTick((tick) => tick + 1);
-    startMissionSelection(robotId);
+    focusRobot(robotId);
   };
 
   const selectDeparture = (nodeId) => {
@@ -390,8 +408,7 @@ function Dashboard() {
 
   const passengerCall = () => {
     setWorld((w) => ({ ...w, requestCount: w.requestCount + 1 }));
-    startMissionSelection();
-    log('info', '신규 승객 호출 · 키오스크 K-02 가상 요청');
+    log('info', '신규 승객 호출 · 안드로이드 화면에서 출발지와 도착지를 지정합니다');
   };
 
   const onReturnCharge = (robotId = selected, source = '수동') => {
@@ -558,34 +575,35 @@ function Dashboard() {
           >
             <ChevronRight size={28} />
           </button>
-        </div>
+      </div>
       )}
 
-      {view === 'fleet' && <aside className="leftpanel glass">
+      {view === 'fleet' && (
+      <div className={`fleet-drawer left ${fleetOpen ? 'open' : ''}`}>
+      <aside className="leftpanel glass" aria-hidden={!fleetOpen}>
         <div className="panelhead">
           <div>
             <span className="eyebrow">FLEET MANAGEMENT</span>
             <h2>로봇 플릿 <span className="count">{String(robots.length).padStart(2, '0')}</span></h2>
           </div>
-          <button className="tinybtn" onClick={() => startMissionSelection()}>+ 배차</button>
         </div>
         <div className="robotlist">
           {robots.map((r) => (
             <div key={r.id} className={`robotrow ${selected === r.id ? 'selected' : ''}`}>
-              <button type="button" className="robot-track" onClick={() => trackRobot(r.id)} aria-label={`${r.id} 휠체어 추적`}>
-                <div className="robot-icon" style={{ '--robot': r.color }}><Bot size={21} /><span /></div>
-                <div className="robot-info">
-                  <b>{r.id}<span className={`status ${statusTone(r.status)}`}>{r.status}</span></b>
-                  <small>{r.targetPoint ? `${r.targetPoint.floor} 맵 지정 지점` : nodeLabel(r.target)}</small>
-                  <div className="batteryline">
-                    <div className="battery"><i style={{ width: `${r.battery}%`, background: r.battery < 25 ? '#ffbd69' : r.color }} /></div>
-                    <small>{Math.round(r.battery)}%</small>
-                  </div>
+              <button type="button" className="robot-track" onClick={() => focusRobot(r.id)} aria-label={`${r.id} 화면 중앙으로`}>
+              <div className="robot-icon" style={{ '--robot': r.color }}><Bot size={21} /><span /></div>
+              <div className="robot-info">
+                <b>{r.id}<span className={`status ${statusTone(r.status)}`}>{r.status}</span></b>
+                <small>{r.targetPoint ? `${r.targetPoint.floor} 맵 지정 지점` : nodeLabel(r.target)}</small>
+                <div className="batteryline">
+                  <div className="battery"><i style={{ width: `${r.battery}%`, background: r.battery < 25 ? '#ffbd69' : r.color }} /></div>
+                  <small>{Math.round(r.battery)}%</small>
                 </div>
+              </div>
               </button>
-              <button type="button" className="robot-edit" onClick={() => openRobotForm(r.id)} aria-label={`${r.id} 출발지와 도착지 입력`}>
+              <button type="button" className="robot-edit" onClick={() => showRobotInfo(r.id)} aria-label={`${r.id} 운행 정보`}>
                 <ChevronRight size={18} />
-              </button>
+            </button>
             </div>
           ))}
         </div>
@@ -629,9 +647,23 @@ function Dashboard() {
           <span><b>자동 충전 복귀</b><small>공차 · 배터리 20% 미만</small></span>
           <button className={`toggle ${autoReturn ? 'on' : ''}`} onClick={() => setAutoReturn((v) => !v)} />
         </div>
-      </aside>}
+      </aside>
+      <button
+        type="button"
+        className="panel-dock"
+        aria-expanded={fleetOpen}
+        aria-label={fleetOpen ? '로봇 플릿 접기' : '로봇 플릿 펼치기'}
+        onClick={() => setFleetOpen((open) => !open)}
+      >
+        {fleetOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        <span>플릿</span>
+      </button>
+      </div>
+      )}
 
-      {view === 'fleet' && <aside className="rightpanel glass">
+      {view === 'fleet' && (
+      <div className={`fleet-drawer right ${telemetryOpen ? 'open' : ''}`}>
+      <aside className="rightpanel glass" aria-hidden={!telemetryOpen}>
         <div className="panelhead">
           <div>
             <span className="eyebrow">LIVE TELEMETRY</span>
@@ -711,9 +743,20 @@ function Dashboard() {
         </div>
         <div className="robotactions">
           <button className="secondarybtn" onClick={onReturnCharge}><BatteryCharging size={15} /> 충전 복귀</button>
-          <button className="primarybtn" onClick={() => startMissionSelection(active.id)}><Navigation size={15} /> 미션 할당</button>
         </div>
-      </aside>}
+      </aside>
+      <button
+        type="button"
+        className="panel-dock"
+        aria-expanded={telemetryOpen}
+        aria-label={telemetryOpen ? '운행 정보 접기' : '운행 정보 펼치기'}
+        onClick={() => setTelemetryOpen((open) => !open)}
+      >
+        {telemetryOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        <span>상태</span>
+      </button>
+      </div>
+      )}
 
       <aside className={`event-drawer glass ${eventsOpen ? 'open' : ''}`} aria-hidden={!eventsOpen}>
         <div className="bottomtitle">
@@ -757,123 +800,58 @@ function Dashboard() {
         </div>
       </footer>
 
-      {view === 'fleet' && planner && (
+      {view === 'fleet' && infoRobot && (
         <>
-          <button className="planner-scrim" aria-label="경로 안내 닫기" onClick={closePlanner} />
-          <section className="missionbar glass route-planner">
+          <button className="planner-scrim" aria-label="운행 정보 닫기" onClick={() => setInfoRobotId(null)} />
+          <section className="missionbar glass route-planner robot-brief" aria-label={`${infoRobot.id} 운행 정보`}>
             <div className="missionbar-head">
               <div className="planner-brand">
                 <KorailMark />
                 <div>
-                  <b>2D 경로 안내</b>
-                  <small>{planner.robotId} · 도착 스팟을 누르면 그 길로 이동합니다</small>
+                  <b>{infoRobot.id} 운행 정보</b>
+                  <small>{infoRobot.status}</small>
                 </div>
               </div>
-              <button className="mission-cancel" onClick={closePlanner} aria-label="경로 안내 닫기">×</button>
+              <button className="mission-cancel" onClick={() => setInfoRobotId(null)} aria-label="운행 정보 닫기">×</button>
             </div>
-            <label className="station-field">
-              출발역
-              <select
-                className="station-select"
-                value={planner.start?.id || ''}
-                onChange={(event) => selectDeparture(event.target.value)}
-              >
-                <option value="">출발역을 선택하세요</option>
-                {SPATIAL_FLOORS.map((floor) => (
-                  <optgroup key={floor} label={`수서역 ${FLOOR_NAME[floor]}`}>
-                    {BOARDING_SPOTS.filter((spot) => spot.floor === floor).map((spot) => (
-                      <option key={spot.id} value={spot.id}>{spotTitle(spot)}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            <label className="station-field">
-              도착역
-              <select
-                className="station-select"
-                value={planner.destination?.id || ''}
-                onChange={(event) => selectDestination(event.target.value)}
-              >
-                <option value="">도착역을 선택하세요</option>
-                {SPATIAL_FLOORS.map((floor) => (
-                  <optgroup key={floor} label={`수서역 ${FLOOR_NAME[floor]}`}>
-                    {BOARDING_SPOTS.filter((spot) => spot.floor === floor && spot.id !== planner.start?.id).map((spot) => (
-                      <option key={spot.id} value={spot.id}>{spotTitle(spot)}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            <div className="planner-summary">
-              <span>출발<b>{missionStartLabel}</b></span>
-              <span>도착<b>{missionDestinationLabel}</b></span>
+            <div className="robot-brief-grid">
+              <p><em>출발지</em><b>{placeLabel(infoRobot.originPoint)}</b></p>
+              <p><em>도착지</em><b>{placeLabel(infoRobot.targetPoint)}</b></p>
+              <p><em>고객명</em><b>{[infoRobot.passenger?.name, infoRobot.passenger?.age ? `${infoRobot.passenger.age}세` : ''].filter(Boolean).join(' / ') || '없음'}</b></p>
+              <p><em>고객정보</em><b>{[infoRobot.passenger?.severity, infoRobot.passenger?.grade].filter(Boolean).join(' ') || '없음'}</b></p>
+              <p className="span"><em>역무원</em><b>{infoRobot.passenger?.staff || '없음'}</b></p>
             </div>
-            <fieldset className="passenger-form">
-              <legend>탑승 고객</legend>
-              <label>이름
-                <input value={passengerForm.name} onChange={(event) => setPassengerForm((form) => ({ ...form, name: event.target.value }))} placeholder="홍길동" />
-              </label>
-              <label>나이
-                <input value={passengerForm.age} inputMode="numeric" onChange={(event) => setPassengerForm((form) => ({ ...form, age: event.target.value.replace(/[^\d]/g, '').slice(0, 3) }))} placeholder="65" />
-              </label>
-              <label>장애 정도
-                <select value={passengerForm.severity} onChange={(event) => setPassengerForm((form) => ({ ...form, severity: event.target.value }))}>
-                  <option value="중증">중증</option>
-                  <option value="경증">경증</option>
-                </select>
-              </label>
-              <label>등급
-                <select value={passengerForm.grade} onChange={(event) => setPassengerForm((form) => ({ ...form, grade: event.target.value }))}>
-                  {DISABILITY_GRADES.map((grade) => <option key={grade} value={grade}>{grade}</option>)}
-                </select>
-              </label>
-              <label className="passenger-staff">담당 역무원
-                <input value={passengerForm.staff} onChange={(event) => setPassengerForm((form) => ({ ...form, staff: event.target.value }))} placeholder="김역무" />
-              </label>
-            </fieldset>
-            <div className="mission-map-edit">
-              <div className="mission-map-floors" aria-label="평면도 층">
-                {SPATIAL_FLOORS.map((floor) => (
-                  <button
-                    key={floor}
-                    className={plannerFloor === floor ? 'active' : ''}
-                    onClick={() => selectMissionFloor(floor)}
-                    aria-pressed={plannerFloor === floor}
-                  >
-                    {FLOOR_NAME[floor]}
-                  </button>
-                ))}
+            <div className="robot-brief-map">
+              <div className="mission-map-edit">
+                <div className="mission-map-floors" aria-label="평면도 층">
+                  {SPATIAL_FLOORS.map((floor) => (
+                    <button
+                      key={floor}
+                      type="button"
+                      className={infoMapFloor === floor ? 'active' : ''}
+                      onClick={() => setInfoMapFloor(floor)}
+                      aria-pressed={infoMapFloor === floor}
+                    >
+                      {FLOOR_NAME[floor]}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <FloorPlan
+                floor={infoMapFloor}
+                spots={BOARDING_SPOTS}
+                start={infoRobot.originPoint}
+                destination={infoRobot.targetPoint}
+                path={infoRobot.missionPath || []}
+                robots={robots}
+                extras={world.extras}
+              />
             </div>
-            <FloorPlan
-              floor={plannerFloor}
-              spots={BOARDING_SPOTS}
-              start={planner.start}
-              destination={planner.destination}
-              path={plannedPath}
-              robots={robots}
-              extras={world.extras}
-              onSpot={selectSpot}
-            />
             <div className="planner-legend">
               <span><i className="ahead" /> 지나갈 길</span>
               <span><i className="done" /> 지나온 길</span>
               <span>출 출발역</span>
               <span>도 도착 스팟</span>
-            </div>
-            <small className="mission-selection-hint">
-              {planner.guiding
-                  ? `${missionStartLabel}에서 ${missionDestinationLabel}으로 이동 중입니다. 다른 도착역을 고르거나 아래 스팟을 누르면 경로가 바뀝니다.`
-                  : planner.start
-                    ? `${FLOOR_NAME[planner.start.floor]}에서 출발합니다. 도착역 드롭다운이나 아래 스팟으로 목적지를 고르세요.`
-                    : '출발역과 도착역은 드롭다운에서 고르거나, 아래 평면도 스팟을 눌러 지정할 수 있습니다.'}
-            </small>
-            {planner.start && planner.destination && planner.start.floor !== planner.destination.floor && (
-              <small>다른 층은 엘리베이터로 이어집니다. 층 버튼으로 각 층의 경로를 볼 수 있습니다.</small>
-            )}
-            <div className="missionbar-actions">
-              <button className="secondarybtn" onClick={closePlanner}>닫기</button>
             </div>
           </section>
         </>
@@ -891,7 +869,7 @@ function Dashboard() {
               <button type="button" onClick={() => onReturnCharge(robot.id, '수동')}>충전존으로 복귀</button>
             </section>
           ))}
-        </div>
+          </div>
       )}
 
       {estop && (

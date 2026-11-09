@@ -117,6 +117,10 @@ export default function FloorPlan({
           <rect width="26" height="26" fill="#e7edf4" />
           <rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="rgba(126, 146, 168, 0.45)" />
         </pattern>
+        <pattern id={`${markerId}-hatch`} width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="11" height="11" fill="#d5f3ea" />
+          <line x1="0" y1="0" x2="0" y2="11" stroke="#1f8a72" strokeWidth="5" />
+        </pattern>
       </defs>
       <rect width="760" height="520" rx="16" fill="#10243f" style={{ pointerEvents: 'none' }} />
       {rings.map((ring, index) => (
@@ -153,13 +157,13 @@ export default function FloorPlan({
           <g key={item.id} style={{ pointerEvents: 'none' }}>
             <rect
               {...rect}
-              rx={item.kind === 'seat' ? 2 : 8}
-              fill={style.color}
-              stroke="#10243f"
+              rx={item.kind === 'seat' ? 2 : item.kind === 'charger' ? 4 : 8}
+              fill={item.kind === 'charger' ? `url(#${markerId}-hatch)` : style.color}
+              stroke={item.kind === 'charger' ? '#146b56' : '#10243f'}
               strokeWidth="1.5"
             />
             {(item.label ?? style.label) ? (
-              <text x={rect.x + rect.width / 2} y={rect.y + rect.height / 2 + 4} textAnchor="middle" fill="#ffffff" stroke="#07111e" strokeWidth="4" paintOrder="stroke" fontSize="15" fontWeight="800">
+              <text x={rect.x + rect.width / 2} y={rect.y + rect.height / 2 + 4} textAnchor="middle" fill={item.kind === 'charger' ? '#083528' : '#ffffff'} stroke={item.kind === 'charger' ? '#e7fff8' : '#07111e'} strokeWidth="4" paintOrder="stroke" fontSize="15" fontWeight="800">
                 {item.label ?? style.label}
               </text>
             ) : null}
@@ -204,9 +208,12 @@ export default function FloorPlan({
       {floorRobots.map((robot) => {
         const [x, y, scale] = project(robot.x, robot.z);
         const footprint = Math.max(7, ROBOT_RADIUS * scale);
-        const faded = Boolean(robot.elevator);
+        const ride = robot.elevator;
+        const dipped = ride
+          ? Math.min(1, (ride.elapsed || 0) / 0.45, Math.max(0, (ride.duration || 1) - (ride.elapsed || 0)) / 0.45)
+          : 0;
         return (
-          <g key={robot.id} style={{ pointerEvents: 'none' }} opacity={faded ? 0.38 : 1}>
+          <g key={robot.id} style={{ pointerEvents: 'none' }} opacity={1 - dipped * 0.78}>
             <circle cx={x} cy={y} r={footprint} fill="none" stroke="#FFFFFF" strokeDasharray="3 2" />
             <circle cx={x} cy={y} r={Math.max(4, footprint * 0.45)} fill="#FFFFFF" stroke="#0054A6" strokeWidth="2" />
             <text x={x} y={y - footprint - 4} textAnchor="middle" fill="#FFFFFF" fontSize="10">{robot.id}</text>
@@ -221,17 +228,17 @@ export default function FloorPlan({
         return (
           <g key={spot.id}>
             <g
-              className="floorplan-spot"
-              onClick={() => onSpot(spot)}
-              role="button"
-              tabIndex={0}
-              aria-label={isStart ? `출발역 ${spot.label}` : spot.label}
-              onKeyDown={(event) => {
+              className={onSpot ? 'floorplan-spot' : undefined}
+              onClick={onSpot ? () => onSpot(spot) : undefined}
+              role={onSpot ? 'button' : undefined}
+              tabIndex={onSpot ? 0 : undefined}
+              aria-label={onSpot ? (isStart ? `출발역 ${spot.label}` : spot.label) : undefined}
+              onKeyDown={onSpot ? (event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   onSpot(spot);
                 }
-              }}
+              } : undefined}
             >
               <circle cx={x} cy={y} r="18" fill={isStart ? '#0054A6' : isDestination ? '#F5C451' : '#F4F8FF'} stroke={isStart || isDestination ? '#FFFFFF' : '#7EB6FF'} strokeWidth="2" />
               <text x={x} y={y + 4} textAnchor="middle" fill={isDestination ? '#0B2E5B' : isStart ? '#FFFFFF' : '#0B3F86'} fontSize="11" fontWeight="700" style={{ pointerEvents: 'none' }}>

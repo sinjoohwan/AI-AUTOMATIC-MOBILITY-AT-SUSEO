@@ -21,10 +21,10 @@ export const nodes = [
   { id: 'lift_34', label: '3·4번 엘리베이터', x: 6.0, z: -1.0, floor: '1F', radius: 0.66 },
   { id: 'lift_56', label: '5·6번 엘리베이터', x: 6.0, z: 4.0, floor: '1F', radius: 0.66 },
   { id: 'taxi', label: '택시 타는곳', x: 12.35, z: 1.05, floor: '1F', radius: 0.62 },
-  { id: 'info', label: '안내창구', x: -3.2, z: -3.8, floor: '1F', radius: 0.62, service: true },
+  { id: 'info', label: '안내창구B1', x: -3.2, z: -3.8, floor: '1F', radius: 0.62, service: true },
   { id: 'ground_exit', label: '지상층', x: -9.65, z: 1.9, floor: '1F', radius: 0.6, service: true },
-  { id: 'subway', label: '지하철 타는곳', x: -12.4, z: 3.25, floor: '1F', radius: 0.62 },
-  { id: 'charge', label: '충전 부스', x: -7.45, z: -3.3, floor: '1F', radius: 0.7 },
+  { id: 'subway', label: '지하철 타는곳', x: -12.35, z: 5.45, floor: '1F', radius: 0.62 },
+  { id: 'charge', label: '충전 부스', x: -9.35, z: -3.55, floor: '1F', radius: 0.7 },
   { id: 'b1_lift_12', label: '1·2번 엘리베이터', x: 10.5, z: -6.4, floor: 'B1', radius: 0.66, service: true },
   { id: 'b1_lift_34', label: '3·4번 엘리베이터', x: 10.5, z: -1.0, floor: 'B1', radius: 0.66, service: true },
   { id: 'b1_lift_56', label: '5·6번 엘리베이터', x: 10.5, z: 4.0, floor: 'B1', radius: 0.66, service: true },
@@ -100,8 +100,8 @@ export const floorFootprints = {
     [3.6, -8.7], [10.6, -8.7], [10.6, -4.2], [14.3, -4.2],
     [14.3, 2.2], [9.2, 2.2], [9.2, 2.8], [11.2, 2.8],
     [11.2, 6.2], [7.4, 6.2], [7.4, 7.7], [-3.4, 7.7],
-    [-3.4, 5.4], [-8.5, 5.4], [-11.1, 5.4],
-    [-11.1, 4.55], [-13.4, 4.55], [-13.4, 1.7], [-11.1, 1.7],
+    [-3.4, 6.6], [-11.1, 6.6],
+    [-13.4, 6.6], [-13.4, 1.7], [-11.1, 1.7],
   ],
   B1: [
     [
@@ -160,17 +160,17 @@ export const AMENITY_STYLE = {
 };
 
 export const amenities = [
-  { id: '1f-charge', floor: '1F', x: -9.65, z: -4.15, w: 2.05, d: 3.6, kind: 'charger', label: '충전 부스' },
-  { id: '1f-flower', floor: '1F', x: -9.65, z: -1.6, w: 1.9, d: 0.95, kind: 'shop', label: '꽃집' },
-  { id: '1f-korean', floor: '1F', x: -9.65, z: 0.05, w: 1.9, d: 1.5, kind: 'restaurant', label: '한식당' },
+  { id: '1f-charge', floor: '1F', x: -9.35, z: -3.7, w: 3.1, d: 4.6, kind: 'charger', label: '충전 부스' },
+  { id: '1f-flower', floor: '1F', x: -9.65, z: -0.05, w: 1.9, d: 0.95, kind: 'shop', label: '꽃집' },
+  { id: '1f-korean', floor: '1F', x: -9.65, z: 1.6, w: 1.9, d: 1.5, kind: 'restaurant', label: '한식당' },
   { id: '1f-police', floor: '1F', x: -6.6, z: -5.5, w: 2.15, d: 1.05, kind: 'police' },
-  { id: '1f-info', floor: '1F', x: -3.55, z: -5.5, w: 2.15, d: 1.05, kind: 'counter', label: '안내창구' },
+  { id: '1f-info', floor: '1F', x: -3.55, z: -5.5, w: 2.15, d: 1.05, kind: 'counter', label: '안내창구B1' },
   { id: '1f-restroom', floor: '1F', x: -0.3, z: -6.5, w: 2.1, d: 1.5, kind: 'restroom' },
   { id: '1f-restaurant', floor: '1F', x: 9.7, z: -6.2, w: 1.45, d: 3.2, kind: 'restaurant' },
   { id: '1f-cafe', floor: '1F', x: -1.9, z: 6.35, w: 2.4, d: 1.35, kind: 'cafe' },
   { id: '1f-lounge', floor: '1F', x: 0.75, z: 6.35, w: 2.4, d: 1.35, kind: 'lounge' },
   { id: 'b1-store', floor: 'B1', x: -9.05, z: -6.78, w: 3.8, d: 2.25, kind: 'shop', label: '편의점' },
-  { id: 'b1-info', floor: 'B1', x: -9.9, z: -3.78, w: 2.1, d: 2.15, kind: 'counter', label: '안내창구' },
+  { id: 'b1-info', floor: 'B1', x: -9.9, z: -3.78, w: 2.1, d: 2.15, kind: 'counter', label: '안내창구B2' },
   { id: 'b1-bench-a', floor: 'B1', x: -5.2, z: -1.55, w: 2.0, d: 0.55, kind: 'seat', label: '' },
   { id: 'b1-bench-b', floor: 'B1', x: -5.2, z: 0.7, w: 2.0, d: 0.55, kind: 'seat', label: '' },
 ];
@@ -186,7 +186,7 @@ export const buildings = [
     color: '#0054A6',
     floor: car.floors[0],
   })),
-  ...amenities.map((item) => ({
+  ...amenities.filter((item) => item.kind !== 'charger').map((item) => ({
     ...item,
     label: AMENITY_STYLE[item.kind].label,
     color: AMENITY_STYLE[item.kind].color,
@@ -936,11 +936,11 @@ export function createWorld() {
       ? { ...chargeDock(robot.id), id: 'charge', radius: 0.75 }
       : {
         id: destination.id,
-        x: destination.x,
-        z: destination.z,
-        floor: destination.floor,
-        radius: destination.radius,
-      };
+      x: destination.x,
+      z: destination.z,
+      floor: destination.floor,
+      radius: destination.radius,
+    };
     const missionPath = findMapPath(
       { x: robot.x, z: robot.z, floor: robot.floor },
       targetPoint,
@@ -973,7 +973,7 @@ export function addRobot(world) {
       { x: 1.4, z: -1.6 },
       { x: 3.2, z: 1.2 },
       { x: -5.4, z: 1.8 },
-    ];
+  ];
   const spawn = candidates.find((candidate) =>
     mapPositionFree(candidate.x, candidate.z, floor, world.extras)
       && world.robots.every((robot) => robot.floor !== floor || hypot(robot.x, robot.z, candidate.x, candidate.z) >= 1.1),
@@ -1083,7 +1083,12 @@ function chooseSafeVelocity(robot, goal, pedestrians, robots, extras) {
         }
         for (const other of robots) {
           if (other.id === robot.id || other.floor !== robot.floor || other.elevator) continue;
-          const peer = hypot(x, z, other.x, other.z) - 0.78;
+          const parked = settledCharger(other);
+          const peer = hypot(x, z, other.x, other.z) - (parked ? 0.95 : 0.78);
+          if (parked) {
+            if (peer < 0) penalty += -peer * 6;
+            continue;
+          }
           if (peer < 0.08) penalty += (0.08 - peer) * 14;
         }
 
@@ -1754,7 +1759,7 @@ function tickRobot(robot, ctx) {
     if ((g.floor || '1F') === next.floor) addAvoid(g.x, g.z, g.r + 0.35, 2.6);
   }
   for (const other of robots) {
-    if (other.id === next.id || other.floor !== next.floor || other.elevator) continue;
+    if (other.id === next.id || other.floor !== next.floor || other.elevator || settledCharger(other)) continue;
     const gap = hypot(next.x, next.z, other.x, other.z);
     if (gap < 0.92) {
       const push = repulsion(next.x, next.z, other.x, other.z, 0.92);
@@ -1798,7 +1803,7 @@ function tickRobot(robot, ctx) {
     }
   }
   const peerAhead = robots.some((other) => {
-    if (other.id === next.id || other.floor !== next.floor || other.elevator) return false;
+    if (other.id === next.id || other.floor !== next.floor || other.elevator || settledCharger(other)) return false;
     const dx = other.x - next.x;
     const dz = other.z - next.z;
     const gap = Math.hypot(dx, dz);
@@ -1810,7 +1815,7 @@ function tickRobot(robot, ctx) {
   }
   let peerGap = 8;
   for (const other of robots) {
-    if (other.id === next.id || other.floor !== next.floor || other.elevator) continue;
+    if (other.id === next.id || other.floor !== next.floor || other.elevator || settledCharger(other)) continue;
     peerGap = Math.min(peerGap, hypot(next.x, next.z, other.x, other.z));
   }
   if (peerGap < 1.35 && !queued) {
@@ -2155,13 +2160,20 @@ export function assignMission(world, robotId, from, to) {
 }
 
 export const CHARGE_DOCKS = {
-  'SW-01': { x: -7.45, z: -4.15, floor: '1F' },
-  'SW-02': { x: -7.45, z: -3.3, floor: '1F' },
-  'SW-03': { x: -7.45, z: -2.5, floor: '1F' },
+  'SW-01': { x: -9.35, z: -5.15, floor: '1F' },
+  'SW-02': { x: -9.35, z: -3.55, floor: '1F' },
+  'SW-03': { x: -9.35, z: -1.95, floor: '1F' },
 };
 
+function settledCharger(robot) {
+  const dock = chargeDock(robot.id);
+  if ((robot.floor || '1F') !== dock.floor) return false;
+  if (robot.status !== '충전 중' && robot.status !== '대기') return false;
+  return hypot(robot.x, robot.z, dock.x, dock.z) < 0.75;
+}
+
 export function chargeDock(robotId) {
-  return CHARGE_DOCKS[robotId] || { x: -7.45, z: -3.3, floor: '1F' };
+  return CHARGE_DOCKS[robotId] || { x: -9.35, z: -3.55, floor: '1F' };
 }
 
 export function returnToCharge(world, robotId, source = '수동') {
@@ -2200,10 +2212,10 @@ export function returnToCharge(world, robotId, source = '수동') {
         speed: 0,
         status: '충전 중',
         targetPoint: null,
-        missionPath: null,
-        missionPathIndex: 0,
-        missionStartIndex: 0,
-        plannedMissionPath: null,
+      missionPath: null,
+      missionPathIndex: 0,
+      missionStartIndex: 0,
+      plannedMissionPath: null,
         homeSeq: arriving ? (r.homeSeq || 0) + 1 : (r.homeSeq || 0),
       };
     }
